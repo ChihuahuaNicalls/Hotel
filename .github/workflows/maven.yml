@@ -17,7 +17,7 @@ jobs:
     - name: Set up Java
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '22'
         distribution: 'temurin'
         cache: 'maven'
         
@@ -28,7 +28,7 @@ jobs:
         PORT: ${{ secrets.PORT }}
         USER: ${{ secrets.USER }}
         PASSWORD: ${{ secrets.PASSWORD }}
-        DATABASE: ${{ secrets.NAME }}
+        DATABASE: ${{ secrets.DATABASE }}
         
     - name: Run tests
       run: mvn -B test
@@ -37,7 +37,7 @@ jobs:
         PORT: ${{ secrets.PORT }}
         USER: ${{ secrets.USER }}
         PASSWORD: ${{ secrets.PASSWORD }}
-        DATABASE: ${{ secrets.DNAME }}
+        DATABASE: ${{ secrets.DATABASE }}
         
     - name: Package application
       run: mvn -B package -DskipTests
