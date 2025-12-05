@@ -3,12 +3,20 @@ package hotel;
 import hotel.DAO.*;
 import hotel.DB.PostgreSQLConnection;
 import hotel.Modelo.*;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
 
+import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MenuController {
@@ -60,7 +68,7 @@ public class MenuController {
     @FXML
     private Button btnClienteActualizar;
     @FXML
-    private ScrollPane scrollClientes;
+    private TableView<Cliente> tableClientes;
 
     @FXML
     private TextField txtReservaCedulaCliente;
@@ -77,7 +85,7 @@ public class MenuController {
     @FXML
     private Button btnReservaTerminar;
     @FXML
-    private ScrollPane scrollReservas;
+    private TableView<Reserva> tableReservas;
 
     @FXML
     private TextField txtEmpleadoCedula;
@@ -110,7 +118,7 @@ public class MenuController {
     @FXML
     private Button btnEmpleadoEliminar;
     @FXML
-    private ScrollPane scrollEmpleados;
+    private TableView<Empleado> tableEmpleados;
 
     @FXML
     private TextField txtAsignarCedulaCliente;
@@ -127,9 +135,7 @@ public class MenuController {
     @FXML
     private Button btnDesasignarEmpleado;
     @FXML
-    private ScrollPane scrollAsignarReservas;
-    @FXML
-    private ScrollPane scrollAsignarReservasEmpleados;
+    private TableView<Atiende> tableAsignaciones;
 
     @FXML
     private TextField txtHabitacionId;
@@ -138,8 +144,16 @@ public class MenuController {
     @FXML
     private Button btnTerminarMantenimiento;
     @FXML
-    private ScrollPane scrollHabitaciones;
+    private TableView<Habitacion> tableHabitaciones;
 
+    @FXML
+    private TextField txtServicioId;
+    @FXML
+    private TextField txtServicioNombre;
+    @FXML
+    private TextField txtServicioDetalle;
+    @FXML
+    private TextField txtServicioPrecio;
     @FXML
     private TextField txtServicioCedulaCliente;
     @FXML
@@ -149,18 +163,27 @@ public class MenuController {
     @FXML
     private TextField txtServicioIdServicio;
     @FXML
+    private Button btnServicioCrear;
+    @FXML
+    private Button btnServicioActualizar;
+    @FXML
+    private Button btnServicioEliminar;
+    @FXML
     private Button btnAnadirServicio;
     @FXML
-    private ScrollPane scrollListaServicios;
+    private TableView<Servicio> tableServicios;
     @FXML
-    private ScrollPane scrollServiciosReservaciones;
+    private TableView<ReservaServicio> tableServiciosReservaciones;
 
     @FXML
     private Button btnDisponibilidadHabitaciones;
     @FXML
     private Button btnConsultaGeneral;
     @FXML
-    private ScrollPane scrollConsultas;
+    private TableView<Object> tableConsultas;
+
+    @FXML
+    private Button btnCerrarSesion;
 
     private ClienteDAO clienteDAO;
     private ReservaDAO reservaDAO;
@@ -173,6 +196,19 @@ public class MenuController {
     private EmailClienteDAO emailClienteDAO;
     private TelefonoEmpleadoDAO telefonoEmpleadoDAO;
     private EmailEmpleadoDAO emailEmpleadoDAO;
+
+    private boolean listenersConfigurados = false;
+    
+    // IDs originales para updates
+    private Integer cedulaClienteOriginal;
+    private Integer cedulaEmpleadoOriginal;
+    private Integer idServicioOriginal;
+    
+    // Control de clicks para deselección
+    private Cliente lastSelectedCliente = null;
+    private Reserva lastSelectedReserva = null;
+    private Empleado lastSelectedEmpleado = null;
+    private Servicio lastSelectedServicio = null;
 
     /**
      * Método que se ejecuta al inicializar el controlador
@@ -196,6 +232,8 @@ public class MenuController {
             configurarTabsSegunUsuario();
 
             cargarDatosIniciales();
+
+            configurarSeleccionTablas();
         } catch (Exception e) {
             mostrarError("Error al inicializar: " + e.getMessage());
         }
@@ -212,21 +250,155 @@ public class MenuController {
 
         switch (userType) {
             case RECEPCION:
-
+                // Recepción: Gestiona clientes, reservas y consulta disponibilidad
                 tabPane.getTabs().addAll(tabClientes, tabReservas, tabConsultas);
                 break;
 
             case PERSONAL_SERVICIO:
-
+                // Personal de Servicio: Actualiza habitaciones y registra consumos adicionales
                 tabPane.getTabs().addAll(tabHabitaciones, tabAdicionServicios);
                 break;
 
             case ADMINISTRACION:
-            case DB_ADMIN:
-
+                // Administración: Gestiona empleados, servicios y tiene acceso a consultas
                 tabPane.getTabs().addAll(tabEmpleados, tabAsignarEmpleados, tabServicios, tabConsultas);
                 break;
+
+            case DB_ADMIN:
+                // DB_ADMIN: Acceso completo a todas las funcionalidades
+                tabPane.getTabs().addAll(tabClientes, tabReservas, tabServicios, tabEmpleados, 
+                                        tabAsignarEmpleados, tabHabitaciones, tabAdicionServicios, tabConsultas);
+                break;
         }
+    }
+
+    private void configurarSeleccionTablas() {
+        if (listenersConfigurados) return;
+
+        if (tableClientes != null) {
+            tableClientes.setOnMouseClicked(event -> {
+                Cliente seleccionado = tableClientes.getSelectionModel().getSelectedItem();
+                if (seleccionado != null && event.getClickCount() == 1) {
+                    if (seleccionado == lastSelectedCliente) {
+                        tableClientes.getSelectionModel().clearSelection();
+                        limpiarCamposCliente();
+                        lastSelectedCliente = null;
+                    } else {
+                        lastSelectedCliente = seleccionado;
+                    }
+                }
+            });
+            
+            tableClientes.getSelectionModel().selectedItemProperty().addListener((obs, oldV, nuevo) -> {
+                if (nuevo != null) {
+                    cedulaClienteOriginal = nuevo.getCedulaCliente();
+                    txtClienteCedula.setText(String.valueOf(nuevo.getCedulaCliente()));
+                    txtClienteCedula.setDisable(true);
+                    txtClientePrimerNombre.setText(nuevo.getPrimerNombre());
+                    txtClienteSegundoNombre.setText(nuevo.getSegundoNombre());
+                    txtClientePrimerApellido.setText(nuevo.getPrimerApellido());
+                    txtClienteSegundoApellido.setText(nuevo.getSegundoApellido());
+                    txtClienteCalle.setText(nuevo.getCalle());
+                    txtClienteCarrera.setText(nuevo.getCarrera());
+                    txtClienteNumero.setText(nuevo.getNumero());
+                    txtClienteComplemento.setText(nuevo.getComplemento());
+                } else {
+                    cedulaClienteOriginal = null;
+                    txtClienteCedula.setDisable(false);
+                }
+            });
+        }
+
+        if (tableReservas != null) {
+            tableReservas.setOnMouseClicked(event -> {
+                Reserva seleccionada = tableReservas.getSelectionModel().getSelectedItem();
+                if (seleccionada != null && event.getClickCount() == 1) {
+                    if (seleccionada == lastSelectedReserva) {
+                        tableReservas.getSelectionModel().clearSelection();
+                        limpiarCamposReserva();
+                        lastSelectedReserva = null;
+                    } else {
+                        lastSelectedReserva = seleccionada;
+                    }
+                }
+            });
+            
+            tableReservas.getSelectionModel().selectedItemProperty().addListener((obs, oldV, nuevo) -> {
+                if (nuevo != null) {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                    txtReservaCedulaCliente.setText(String.valueOf(nuevo.getCedulaCliente()));
+                    txtReservaIdHabitacion.setText(String.valueOf(nuevo.getIdHabitacion()));
+                    txtReservaFechaLlegada.setText(nuevo.getFechaLlegada() != null ? nuevo.getFechaLlegada().toLocalDate().format(formatter) : "");
+                    txtReservaCarrera.setText(nuevo.getFechaSalida() != null ? nuevo.getFechaSalida().toLocalDate().format(formatter) : "");
+                }
+            });
+        }
+
+        if (tableEmpleados != null) {
+            tableEmpleados.setOnMouseClicked(event -> {
+                Empleado seleccionado = tableEmpleados.getSelectionModel().getSelectedItem();
+                if (seleccionado != null && event.getClickCount() == 1) {
+                    if (seleccionado == lastSelectedEmpleado) {
+                        tableEmpleados.getSelectionModel().clearSelection();
+                        limpiarCamposEmpleado();
+                        lastSelectedEmpleado = null;
+                    } else {
+                        lastSelectedEmpleado = seleccionado;
+                    }
+                }
+            });
+            
+            tableEmpleados.getSelectionModel().selectedItemProperty().addListener((obs, oldV, nuevo) -> {
+                if (nuevo != null) {
+                    cedulaEmpleadoOriginal = nuevo.getCedulaEmpleado();
+                    txtEmpleadoCedula.setText(String.valueOf(nuevo.getCedulaEmpleado()));
+                    txtEmpleadoCedula.setDisable(true);
+                    txtEmpleadoPrimerNombre.setText(nuevo.getPrimerNombre());
+                    txtEmpleadoSegundoNombre.setText(nuevo.getSegundoNombre());
+                    txtEmpleadoPrimerApellido.setText(nuevo.getPrimerApellido());
+                    txtEmpleadoSegundoApellido.setText(nuevo.getSegundoApellido());
+                    txtEmpleadoCalle.setText(nuevo.getCalle());
+                    txtEmpleadoCarrera.setText(nuevo.getCarrera());
+                    txtEmpleadoNumero.setText(nuevo.getNumero());
+                    txtEmpleadoComplemento.setText(nuevo.getComplemento());
+                    txtEmpleadoIdArea.setText(nuevo.getIdArea() != null ? String.valueOf(nuevo.getIdArea()) : "");
+                } else {
+                    cedulaEmpleadoOriginal = null;
+                    txtEmpleadoCedula.setDisable(false);
+                }
+            });
+        }
+
+        if (tableServicios != null) {
+            tableServicios.setOnMouseClicked(event -> {
+                Servicio seleccionado = tableServicios.getSelectionModel().getSelectedItem();
+                if (seleccionado != null && event.getClickCount() == 1) {
+                    if (seleccionado == lastSelectedServicio) {
+                        tableServicios.getSelectionModel().clearSelection();
+                        limpiarCamposServicioCrud();
+                        lastSelectedServicio = null;
+                    } else {
+                        lastSelectedServicio = seleccionado;
+                    }
+                }
+            });
+            
+            tableServicios.getSelectionModel().selectedItemProperty().addListener((obs, oldV, nuevo) -> {
+                if (nuevo != null) {
+                    idServicioOriginal = nuevo.getIdServicio();
+                    txtServicioId.setText(nuevo.getIdServicio() != null ? String.valueOf(nuevo.getIdServicio()) : "");
+                    txtServicioId.setDisable(true);
+                    txtServicioNombre.setText(nuevo.getNombreServicio());
+                    txtServicioDetalle.setText(nuevo.getDetalleServicio());
+                    txtServicioPrecio.setText(nuevo.getPrecioServicio() != null ? nuevo.getPrecioServicio().toPlainString() : "");
+                } else {
+                    idServicioOriginal = null;
+                    txtServicioId.setDisable(false);
+                }
+            });
+        }
+
+        listenersConfigurados = true;
     }
 
     /**
@@ -239,18 +411,33 @@ public class MenuController {
 
             switch (userType) {
                 case RECEPCION:
+                    // Recepción: Carga clientes y reservas
                     cargarClientes();
                     cargarReservas();
                     break;
 
                 case PERSONAL_SERVICIO:
+                    // Personal de Servicio: Solo carga habitaciones y servicios
                     cargarHabitaciones();
+                    cargarReservasServicios();
                     break;
 
                 case ADMINISTRACION:
-                case DB_ADMIN:
+                    // Administración: Carga empleados, servicios y datos para consultas
                     cargarEmpleados();
                     cargarServicios();
+                    cargarAsignaciones();
+                    break;
+
+                case DB_ADMIN:
+                    // DB_ADMIN: Carga todos los datos
+                    cargarClientes();
+                    cargarReservas();
+                    cargarEmpleados();
+                    cargarHabitaciones();
+                    cargarServicios();
+                    cargarAsignaciones();
+                    cargarReservasServicios();
                     break;
             }
         } catch (SQLException e) {
@@ -264,13 +451,13 @@ public class MenuController {
             Cliente cliente = new Cliente();
             cliente.setCedulaCliente(Integer.parseInt(txtClienteCedula.getText()));
             cliente.setPrimerNombre(txtClientePrimerNombre.getText());
-            cliente.setSegundoNombre(txtClienteSegundoNombre.getText());
+            cliente.setSegundoNombre(nullIfBlank(txtClienteSegundoNombre.getText()));
             cliente.setPrimerApellido(txtClientePrimerApellido.getText());
-            cliente.setSegundoApellido(txtClienteSegundoApellido.getText());
+            cliente.setSegundoApellido(nullIfBlank(txtClienteSegundoApellido.getText()));
             cliente.setCalle(txtClienteCalle.getText());
             cliente.setCarrera(txtClienteCarrera.getText());
             cliente.setNumero(txtClienteNumero.getText());
-            cliente.setComplemento(txtClienteComplemento.getText());
+            cliente.setComplemento(nullIfBlank(txtClienteComplemento.getText()));
 
             if (clienteDAO.insert(cliente)) {
                 mostrarInfo("Cliente creado exitosamente");
@@ -289,16 +476,27 @@ public class MenuController {
     @FXML
     private void handleClienteActualizar() {
         try {
+            Cliente seleccionado = tableClientes.getSelectionModel().getSelectedItem();
+            if (seleccionado == null) {
+                mostrarError("Seleccione un cliente en la tabla para modificar.");
+                return;
+            }
+
+            if (!camposClienteLlenos()) {
+                mostrarError("Complete todos los campos del cliente antes de modificar.");
+                return;
+            }
+
             Cliente cliente = new Cliente();
-            cliente.setCedulaCliente(Integer.parseInt(txtClienteCedula.getText()));
+            cliente.setCedulaCliente(cedulaClienteOriginal != null ? cedulaClienteOriginal : Integer.parseInt(txtClienteCedula.getText()));
             cliente.setPrimerNombre(txtClientePrimerNombre.getText());
-            cliente.setSegundoNombre(txtClienteSegundoNombre.getText());
+            cliente.setSegundoNombre(nullIfBlank(txtClienteSegundoNombre.getText()));
             cliente.setPrimerApellido(txtClientePrimerApellido.getText());
-            cliente.setSegundoApellido(txtClienteSegundoApellido.getText());
+            cliente.setSegundoApellido(nullIfBlank(txtClienteSegundoApellido.getText()));
             cliente.setCalle(txtClienteCalle.getText());
             cliente.setCarrera(txtClienteCarrera.getText());
             cliente.setNumero(txtClienteNumero.getText());
-            cliente.setComplemento(txtClienteComplemento.getText());
+            cliente.setComplemento(nullIfBlank(txtClienteComplemento.getText()));
 
             if (clienteDAO.update(cliente)) {
                 mostrarInfo("Cliente actualizado exitosamente");
@@ -311,21 +509,109 @@ public class MenuController {
     }
 
     private void cargarClientes() throws SQLException {
-        List<Cliente> clientes = clienteDAO.findAll();
-        VBox vbox = new VBox(5);
-
-        for (Cliente cliente : clientes) {
-            Label label = new Label(cliente.getCedulaCliente() + " - " +
-                    cliente.getPrimerNombre() + " " +
-                    cliente.getPrimerApellido());
-            vbox.getChildren().add(label);
+        if (tableClientes == null) {
+            System.out.println("ADVERTENCIA: tableClientes es null");
+            return;
         }
-
-        scrollClientes.setContent(vbox);
+        
+        System.out.println("Cargando clientes...");
+        tableClientes.getColumns().clear();
+        
+        TableColumn<Cliente, Integer> colCedula = new TableColumn<>("Cédula");
+        colCedula.setCellValueFactory(new PropertyValueFactory<>("cedulaCliente"));
+        colCedula.setPrefWidth(100);
+        
+        TableColumn<Cliente, String> colPrimerNombre = new TableColumn<>("Primer Nombre");
+        colPrimerNombre.setCellValueFactory(new PropertyValueFactory<>("primerNombre"));
+        colPrimerNombre.setPrefWidth(120);
+        
+        TableColumn<Cliente, String> colSegundoNombre = new TableColumn<>("Segundo Nombre");
+        colSegundoNombre.setCellValueFactory(new PropertyValueFactory<>("segundoNombre"));
+        colSegundoNombre.setPrefWidth(120);
+        
+        TableColumn<Cliente, String> colPrimerApellido = new TableColumn<>("Primer Apellido");
+        colPrimerApellido.setCellValueFactory(new PropertyValueFactory<>("primerApellido"));
+        colPrimerApellido.setPrefWidth(120);
+        
+        TableColumn<Cliente, String> colSegundoApellido = new TableColumn<>("Segundo Apellido");
+        colSegundoApellido.setCellValueFactory(new PropertyValueFactory<>("segundoApellido"));
+        colSegundoApellido.setPrefWidth(120);
+        
+        TableColumn<Cliente, String> colDireccion = new TableColumn<>("Dirección");
+        colDireccion.setCellValueFactory(cellData -> {
+            Cliente c = cellData.getValue();
+            String direccion = c.getCalle() + " # " + c.getCarrera() + " - " + c.getNumero();
+            if (c.getComplemento() != null && !c.getComplemento().isEmpty()) {
+                direccion += " " + c.getComplemento();
+            }
+            return new SimpleStringProperty(direccion);
+        });
+        colDireccion.setPrefWidth(200);
+        
+        // Cargar todos los clientes primero
+        List<Cliente> clientes = clienteDAO.findAll();
+        System.out.println("Clientes encontrados: " + clientes.size());
+        
+        // Cargar TODOS los teléfonos con UN SOLO findAll
+        java.util.Map<Integer, List<String>> telefonosPorCedula = new java.util.HashMap<>();
+        try {
+            List<TelefonoCliente> todosTelefonos = telefonoClienteDAO.findAll();
+            for (TelefonoCliente tel : todosTelefonos) {
+                telefonosPorCedula.computeIfAbsent(tel.getCedulaCliente(), k -> new ArrayList<>())
+                    .add(tel.getTelefonoCliente());
+            }
+        } catch (Exception e) {
+            System.out.println("Error cargando teléfonos: " + e.getMessage());
+        }
+        
+        // Cargar TODOS los emails con UN SOLO findAll
+        java.util.Map<Integer, List<String>> emailsPorCedula = new java.util.HashMap<>();
+        try {
+            List<EmailCliente> todosEmails = emailClienteDAO.findAll();
+            for (EmailCliente email : todosEmails) {
+                emailsPorCedula.computeIfAbsent(email.getCedulaCliente(), k -> new ArrayList<>())
+                    .add(email.getCorreoCliente());
+            }
+        } catch (Exception e) {
+            System.out.println("Error cargando emails: " + e.getMessage());
+        }
+        
+        // Columna de teléfonos (ahora desde memoria)
+        TableColumn<Cliente, String> colTelefonos = new TableColumn<>("Teléfonos");
+        colTelefonos.setCellValueFactory(cellData -> {
+            Cliente c = cellData.getValue();
+            List<String> telefonos = telefonosPorCedula.getOrDefault(c.getCedulaCliente(), new java.util.ArrayList<>());
+            String resultado = String.join(", ", telefonos);
+            return new SimpleStringProperty(resultado.isEmpty() ? "N/A" : resultado);
+        });
+        colTelefonos.setPrefWidth(150);
+        
+        // Columna de emails (ahora desde memoria)
+        TableColumn<Cliente, String> colEmails = new TableColumn<>("Emails");
+        colEmails.setCellValueFactory(cellData -> {
+            Cliente c = cellData.getValue();
+            List<String> emails = emailsPorCedula.getOrDefault(c.getCedulaCliente(), new java.util.ArrayList<>());
+            String resultado = String.join(", ", emails);
+            return new SimpleStringProperty(resultado.isEmpty() ? "N/A" : resultado);
+        });
+        colEmails.setPrefWidth(200);
+        
+        tableClientes.getColumns().addAll(colCedula, colPrimerNombre, colSegundoNombre, 
+                                         colPrimerApellido, colSegundoApellido, colDireccion, colTelefonos, colEmails);
+        
+        if (!clientes.isEmpty()) {
+            Cliente primerCliente = clientes.get(0);
+            System.out.println("Primer cliente: " + primerCliente.getPrimerNombre() + " " + primerCliente.getPrimerApellido());
+        }
+        ObservableList<Cliente> data = FXCollections.observableArrayList(clientes);
+        tableClientes.setItems(data);
+        System.out.println("Clientes cargados en la tabla");
     }
 
     private void limpiarCamposCliente() {
         txtClienteCedula.clear();
+        txtClienteCedula.setDisable(false);
+        cedulaClienteOriginal = null;
         txtClientePrimerNombre.clear();
         txtClienteSegundoNombre.clear();
         txtClientePrimerApellido.clear();
@@ -367,11 +653,11 @@ public class MenuController {
         try {
             Reserva reserva = new Reserva();
             reserva.setCedulaCliente(Integer.parseInt(txtReservaCedulaCliente.getText()));
-            reserva.setFechaLlegada(java.time.LocalDateTime.parse(txtReservaFechaLlegada.getText() + "T00:00:00"));
+            reserva.setFechaLlegada(parseFecha(txtReservaFechaLlegada.getText()));
             reserva.setIdHabitacion(Integer.parseInt(txtReservaIdHabitacion.getText()));
 
             if (!txtReservaCarrera.getText().isEmpty()) {
-                reserva.setFechaSalida(java.time.LocalDateTime.parse(txtReservaCarrera.getText() + "T00:00:00"));
+                reserva.setFechaSalida(parseFecha(txtReservaCarrera.getText()));
             }
 
             if (reservaDAO.insert(reserva)) {
@@ -387,12 +673,23 @@ public class MenuController {
     @FXML
     private void handleReservaActualizar() {
         try {
+            Reserva seleccionada = tableReservas.getSelectionModel().getSelectedItem();
+            if (seleccionada == null) {
+                mostrarError("Seleccione una reserva en la tabla para modificar.");
+                return;
+            }
+
+            if (!camposReservaLlenos()) {
+                mostrarError("Complete todos los campos de la reserva antes de modificar.");
+                return;
+            }
+
             Reserva reserva = new Reserva();
             reserva.setCedulaCliente(Integer.parseInt(txtReservaCedulaCliente.getText()));
-            reserva.setFechaLlegada(java.time.LocalDateTime.parse(txtReservaFechaLlegada.getText() + "T00:00:00"));
+            reserva.setFechaLlegada(parseFecha(txtReservaFechaLlegada.getText()));
             reserva.setIdHabitacion(Integer.parseInt(txtReservaIdHabitacion.getText()));
             if (!txtReservaCarrera.getText().isEmpty()) {
-                reserva.setFechaSalida(java.time.LocalDateTime.parse(txtReservaCarrera.getText() + "T00:00:00"));
+                reserva.setFechaSalida(parseFecha(txtReservaCarrera.getText()));
             }
 
             if (reservaDAO.update(reserva)) {
@@ -408,10 +705,15 @@ public class MenuController {
     @FXML
     private void handleReservaTerminar() {
         try {
-            Integer cedula = Integer.parseInt(txtReservaCedulaCliente.getText());
-            Integer idHabitacion = Integer.parseInt(txtReservaIdHabitacion.getText());
-            java.time.LocalDateTime fechaLlegada = java.time.LocalDateTime
-                    .parse(txtReservaFechaLlegada.getText() + "T00:00:00");
+            Reserva seleccionada = tableReservas.getSelectionModel().getSelectedItem();
+            if (seleccionada == null) {
+                mostrarError("Seleccione una reserva en la tabla para eliminar.");
+                return;
+            }
+
+            Integer cedula = seleccionada.getCedulaCliente();
+            Integer idHabitacion = seleccionada.getIdHabitacion();
+            java.time.LocalDateTime fechaLlegada = seleccionada.getFechaLlegada();
 
             if (reservaDAO.deleteById(cedula, idHabitacion, fechaLlegada)) {
                 mostrarInfo("Reserva terminada exitosamente");
@@ -424,17 +726,44 @@ public class MenuController {
     }
 
     private void cargarReservas() throws SQLException {
-        List<Reserva> reservas = reservaDAO.findAll();
-        VBox vbox = new VBox(5);
-
-        for (Reserva reserva : reservas) {
-            Label label = new Label("Cliente: " + reserva.getCedulaCliente() +
-                    " | Habitación: " + reserva.getIdHabitacion() +
-                    " | Llegada: " + reserva.getFechaLlegada());
-            vbox.getChildren().add(label);
+        if (tableReservas == null) {
+            System.out.println("ADVERTENCIA: tableReservas es null");
+            return;
         }
-
-        scrollReservas.setContent(vbox);
+        System.out.println("Cargando reservas...");
+        tableReservas.getColumns().clear();
+        
+        TableColumn<Reserva, Integer> colCedulaCliente = new TableColumn<>("Cédula Cliente");
+        colCedulaCliente.setCellValueFactory(new PropertyValueFactory<>("cedulaCliente"));
+        colCedulaCliente.setPrefWidth(120);
+        
+        TableColumn<Reserva, Integer> colIdHabitacion = new TableColumn<>("ID Habitación");
+        colIdHabitacion.setCellValueFactory(new PropertyValueFactory<>("idHabitacion"));
+        colIdHabitacion.setPrefWidth(120);
+        
+        TableColumn<Reserva, LocalDateTime> colFechaLlegada = new TableColumn<>("Fecha Llegada");
+        colFechaLlegada.setCellValueFactory(new PropertyValueFactory<>("fechaLlegada"));
+        colFechaLlegada.setPrefWidth(180);
+        
+        TableColumn<Reserva, LocalDateTime> colFechaSalida = new TableColumn<>("Fecha Salida");
+        colFechaSalida.setCellValueFactory(new PropertyValueFactory<>("fechaSalida"));
+        colFechaSalida.setPrefWidth(180);
+        
+        tableReservas.getColumns().addAll(colCedulaCliente, colIdHabitacion, 
+                                         colFechaLlegada, colFechaSalida);
+        
+        System.out.println("Columnas de reservas agregadas: " + tableReservas.getColumns().size());
+        
+        List<Reserva> reservas = reservaDAO.findAll();
+        System.out.println("Reservas encontradas: " + reservas.size());
+        if (!reservas.isEmpty()) {
+            Reserva primeraReserva = reservas.get(0);
+            System.out.println("Primera reserva - Cliente: " + primeraReserva.getCedulaCliente() + 
+                             ", Habitación: " + primeraReserva.getIdHabitacion());
+        }
+        ObservableList<Reserva> data = FXCollections.observableArrayList(reservas);
+        tableReservas.setItems(data);
+        System.out.println("Reservas cargadas en la tabla");
     }
 
     private void limpiarCamposReserva() {
@@ -450,13 +779,13 @@ public class MenuController {
             Empleado empleado = new Empleado();
             empleado.setCedulaEmpleado(Integer.parseInt(txtEmpleadoCedula.getText()));
             empleado.setPrimerNombre(txtEmpleadoPrimerNombre.getText());
-            empleado.setSegundoNombre(txtEmpleadoSegundoNombre.getText());
+            empleado.setSegundoNombre(nullIfBlank(txtEmpleadoSegundoNombre.getText()));
             empleado.setPrimerApellido(txtEmpleadoPrimerApellido.getText());
-            empleado.setSegundoApellido(txtEmpleadoSegundoApellido.getText());
+            empleado.setSegundoApellido(nullIfBlank(txtEmpleadoSegundoApellido.getText()));
             empleado.setCalle(txtEmpleadoCalle.getText());
             empleado.setCarrera(txtEmpleadoCarrera.getText());
             empleado.setNumero(txtEmpleadoNumero.getText());
-            empleado.setComplemento(txtEmpleadoComplemento.getText());
+            empleado.setComplemento(nullIfBlank(txtEmpleadoComplemento.getText()));
             empleado.setCargo("");
             empleado.setIdArea(Integer.parseInt(txtEmpleadoIdArea.getText()));
 
@@ -477,16 +806,27 @@ public class MenuController {
     @FXML
     private void handleEmpleadoActualizar() {
         try {
+            Empleado seleccionado = tableEmpleados.getSelectionModel().getSelectedItem();
+            if (seleccionado == null) {
+                mostrarError("Seleccione un empleado en la tabla para modificar.");
+                return;
+            }
+
+            if (!camposEmpleadoLlenos()) {
+                mostrarError("Complete todos los campos del empleado antes de modificar.");
+                return;
+            }
+
             Empleado empleado = new Empleado();
-            empleado.setCedulaEmpleado(Integer.parseInt(txtEmpleadoCedula.getText()));
+            empleado.setCedulaEmpleado(cedulaEmpleadoOriginal != null ? cedulaEmpleadoOriginal : Integer.parseInt(txtEmpleadoCedula.getText()));
             empleado.setPrimerNombre(txtEmpleadoPrimerNombre.getText());
-            empleado.setSegundoNombre(txtEmpleadoSegundoNombre.getText());
+            empleado.setSegundoNombre(nullIfBlank(txtEmpleadoSegundoNombre.getText()));
             empleado.setPrimerApellido(txtEmpleadoPrimerApellido.getText());
-            empleado.setSegundoApellido(txtEmpleadoSegundoApellido.getText());
+            empleado.setSegundoApellido(nullIfBlank(txtEmpleadoSegundoApellido.getText()));
             empleado.setCalle(txtEmpleadoCalle.getText());
             empleado.setCarrera(txtEmpleadoCarrera.getText());
             empleado.setNumero(txtEmpleadoNumero.getText());
-            empleado.setComplemento(txtEmpleadoComplemento.getText());
+            empleado.setComplemento(nullIfBlank(txtEmpleadoComplemento.getText()));
             empleado.setCargo("");
             empleado.setIdArea(Integer.parseInt(txtEmpleadoIdArea.getText()));
 
@@ -503,9 +843,13 @@ public class MenuController {
     @FXML
     private void handleEmpleadoEliminar() {
         try {
-            Integer cedula = Integer.parseInt(txtEmpleadoCedula.getText());
+            Empleado seleccionado = tableEmpleados.getSelectionModel().getSelectedItem();
+            if (seleccionado == null) {
+                mostrarError("Seleccione un empleado en la tabla para eliminar.");
+                return;
+            }
 
-            if (empleadoDAO.deleteById(cedula)) {
+            if (empleadoDAO.deleteById(seleccionado.getCedulaEmpleado())) {
                 mostrarInfo("Empleado eliminado exitosamente");
                 limpiarCamposEmpleado();
                 cargarEmpleados();
@@ -516,22 +860,52 @@ public class MenuController {
     }
 
     private void cargarEmpleados() throws SQLException {
+        if (tableEmpleados == null) return;
+        tableEmpleados.getColumns().clear();
+        
+        TableColumn<Empleado, Integer> colCedula = new TableColumn<>("Cédula");
+        colCedula.setCellValueFactory(new PropertyValueFactory<>("cedulaEmpleado"));
+        colCedula.setPrefWidth(100);
+        
+        TableColumn<Empleado, String> colPrimerNombre = new TableColumn<>("Primer Nombre");
+        colPrimerNombre.setCellValueFactory(new PropertyValueFactory<>("primerNombre"));
+        colPrimerNombre.setPrefWidth(120);
+        
+        TableColumn<Empleado, String> colPrimerApellido = new TableColumn<>("Primer Apellido");
+        colPrimerApellido.setCellValueFactory(new PropertyValueFactory<>("primerApellido"));
+        colPrimerApellido.setPrefWidth(120);
+        
+        TableColumn<Empleado, String> colCargo = new TableColumn<>("Cargo");
+        colCargo.setCellValueFactory(new PropertyValueFactory<>("cargo"));
+        colCargo.setPrefWidth(120);
+        
+        TableColumn<Empleado, Integer> colIdArea = new TableColumn<>("ID Área");
+        colIdArea.setCellValueFactory(new PropertyValueFactory<>("idArea"));
+        colIdArea.setPrefWidth(80);
+        
+        TableColumn<Empleado, String> colDireccion = new TableColumn<>("Dirección");
+        colDireccion.setCellValueFactory(cellData -> {
+            Empleado e = cellData.getValue();
+            String direccion = "Calle " + e.getCalle() + " # " + e.getCarrera() + " - " + e.getNumero();
+            if (e.getComplemento() != null && !e.getComplemento().isEmpty()) {
+                direccion += " " + e.getComplemento();
+            }
+            return new SimpleStringProperty(direccion);
+        });
+        colDireccion.setPrefWidth(200);
+        
+        tableEmpleados.getColumns().addAll(colCedula, colPrimerNombre, colPrimerApellido, 
+                                          colCargo, colIdArea, colDireccion);
+        
         List<Empleado> empleados = empleadoDAO.findAll();
-        VBox vbox = new VBox(5);
-
-        for (Empleado empleado : empleados) {
-            Label label = new Label(empleado.getCedulaEmpleado() + " - " +
-                    empleado.getPrimerNombre() + " " +
-                    empleado.getPrimerApellido() +
-                    " | Área: " + empleado.getIdArea());
-            vbox.getChildren().add(label);
-        }
-
-        scrollEmpleados.setContent(vbox);
+        ObservableList<Empleado> data = FXCollections.observableArrayList(empleados);
+        tableEmpleados.setItems(data);
     }
 
     private void limpiarCamposEmpleado() {
         txtEmpleadoCedula.clear();
+        txtEmpleadoCedula.setDisable(false);
+        cedulaEmpleadoOriginal = null;
         txtEmpleadoPrimerNombre.clear();
         txtEmpleadoSegundoNombre.clear();
         txtEmpleadoPrimerApellido.clear();
@@ -612,11 +986,34 @@ public class MenuController {
     }
 
     private void cargarAsignaciones() throws SQLException {
-
-        VBox vbox = new VBox(5);
-        Label label = new Label("Ingrese datos de reserva para ver asignaciones");
-        vbox.getChildren().add(label);
-        scrollAsignarReservasEmpleados.setContent(vbox);
+        if (tableAsignaciones == null) return;
+        tableAsignaciones.getColumns().clear();
+        
+        TableColumn<Atiende, Integer> colCedulaCliente = new TableColumn<>("Cédula Cliente");
+        colCedulaCliente.setCellValueFactory(new PropertyValueFactory<>("cedulaCliente"));
+        colCedulaCliente.setPrefWidth(120);
+        
+        TableColumn<Atiende, Integer> colCedulaEmpleado = new TableColumn<>("Cédula Empleado");
+        colCedulaEmpleado.setCellValueFactory(new PropertyValueFactory<>("cedulaEmpleado"));
+        colCedulaEmpleado.setPrefWidth(140);
+        
+        TableColumn<Atiende, Integer> colIdHabitacion = new TableColumn<>("ID Habitación");
+        colIdHabitacion.setCellValueFactory(new PropertyValueFactory<>("idHabitacion"));
+        colIdHabitacion.setPrefWidth(120);
+        
+        TableColumn<Atiende, Integer> colIdServicio = new TableColumn<>("ID Servicio");
+        colIdServicio.setCellValueFactory(new PropertyValueFactory<>("idServicio"));
+        colIdServicio.setPrefWidth(100);
+        
+        TableColumn<Atiende, LocalDateTime> colFechaUso = new TableColumn<>("Fecha Uso");
+        colFechaUso.setCellValueFactory(new PropertyValueFactory<>("fechaUso"));
+        colFechaUso.setPrefWidth(180);
+        
+        tableAsignaciones.getColumns().addAll(colCedulaCliente, colCedulaEmpleado, 
+                                             colIdHabitacion, colIdServicio, colFechaUso);
+        
+        // Mensaje inicial
+        tableAsignaciones.setPlaceholder(new Label("Ingrese datos de reserva para ver asignaciones"));
     }
 
     private void limpiarCamposAsignar() {
@@ -666,31 +1063,128 @@ public class MenuController {
     }
 
     private void cargarHabitaciones() throws SQLException {
+        if (tableHabitaciones == null) return;
+        tableHabitaciones.getColumns().clear();
+        
+        TableColumn<Habitacion, Integer> colId = new TableColumn<>("ID Habitación");
+        colId.setCellValueFactory(new PropertyValueFactory<>("idHabitacion"));
+        colId.setPrefWidth(120);
+        
+        TableColumn<Habitacion, Integer> colCategoria = new TableColumn<>("ID Categoría");
+        colCategoria.setCellValueFactory(new PropertyValueFactory<>("idCategoria"));
+        colCategoria.setPrefWidth(120);
+        
+        TableColumn<Habitacion, Boolean> colMantenimiento = new TableColumn<>("Mantenimiento");
+        colMantenimiento.setCellValueFactory(new PropertyValueFactory<>("mantenimiento"));
+        colMantenimiento.setPrefWidth(120);
+        
+        TableColumn<Habitacion, String> colEstado = new TableColumn<>("Estado");
+        colEstado.setCellValueFactory(cellData -> {
+            String estado = cellData.getValue().getMantenimiento() ? "En Mantenimiento" : "Disponible";
+            return new SimpleStringProperty(estado);
+        });
+        colEstado.setPrefWidth(150);
+        
+        tableHabitaciones.getColumns().addAll(colId, colCategoria, colMantenimiento, colEstado);
+        
         List<Habitacion> habitaciones = habitacionDAO.findAll();
-        VBox vbox = new VBox(5);
-
-        for (Habitacion habitacion : habitaciones) {
-            String estado = habitacion.getMantenimiento() ? "Mantenimiento" : "Disponible";
-            Label label = new Label("Habitación: " + habitacion.getIdHabitacion() +
-                    " | Estado: " + estado +
-                    " | Categoría: " + habitacion.getIdCategoria());
-            vbox.getChildren().add(label);
-        }
-
-        scrollHabitaciones.setContent(vbox);
+        ObservableList<Habitacion> data = FXCollections.observableArrayList(habitaciones);
+        tableHabitaciones.setItems(data);
     }
 
     private void cargarServicios() throws SQLException {
+        if (tableServicios == null) return;
+        tableServicios.getColumns().clear();
+        
+        TableColumn<Servicio, Integer> colId = new TableColumn<>("ID Servicio");
+        colId.setCellValueFactory(new PropertyValueFactory<>("idServicio"));
+        colId.setPrefWidth(100);
+        
+        TableColumn<Servicio, String> colNombre = new TableColumn<>("Nombre");
+        colNombre.setCellValueFactory(new PropertyValueFactory<>("nombreServicio"));
+        colNombre.setPrefWidth(200);
+        
+        TableColumn<Servicio, String> colDetalle = new TableColumn<>("Detalle");
+        colDetalle.setCellValueFactory(new PropertyValueFactory<>("detalleServicio"));
+        colDetalle.setPrefWidth(250);
+        
+        TableColumn<Servicio, BigDecimal> colPrecio = new TableColumn<>("Precio");
+        colPrecio.setCellValueFactory(new PropertyValueFactory<>("precioServicio"));
+        colPrecio.setPrefWidth(120);
+        
+        tableServicios.getColumns().addAll(colId, colNombre, colDetalle, colPrecio);
+        
         List<Servicio> servicios = servicioDAO.findAll();
-        VBox vbox = new VBox(5);
+        ObservableList<Servicio> data = FXCollections.observableArrayList(servicios);
+        tableServicios.setItems(data);
+    }
 
-        for (Servicio servicio : servicios) {
-            Label label = new Label("ID: " + servicio.getIdServicio() +
-                    " | " + servicio.getNombreServicio() +
-                    " | Precio: $" + servicio.getPrecioServicio());
-            vbox.getChildren().add(label);
+    @FXML
+    private void handleServicioCrear() {
+        try {
+            Servicio servicio = new Servicio();
+            servicio.setIdServicio(Integer.parseInt(txtServicioId.getText()));
+            servicio.setNombreServicio(txtServicioNombre.getText());
+            servicio.setDetalleServicio(txtServicioDetalle.getText());
+            servicio.setPrecioServicio(new BigDecimal(txtServicioPrecio.getText()));
+
+            if (servicioDAO.insert(servicio)) {
+                mostrarInfo("Servicio creado exitosamente");
+                limpiarCamposServicioCrud();
+                cargarServicios();
+            }
+        } catch (Exception e) {
+            mostrarError("Error al crear servicio: " + e.getMessage());
         }
+    }
 
+    @FXML
+    private void handleServicioActualizar() {
+        try {
+            Servicio seleccionado = tableServicios.getSelectionModel().getSelectedItem();
+            if (seleccionado == null) {
+                mostrarError("Seleccione un servicio en la tabla para modificar.");
+                return;
+            }
+
+            if (!camposServicioLlenos()) {
+                mostrarError("Complete todos los campos del servicio antes de modificar.");
+                return;
+            }
+
+            Servicio servicio = new Servicio();
+            servicio.setIdServicio(idServicioOriginal != null ? idServicioOriginal : Integer.parseInt(txtServicioId.getText()));
+            servicio.setNombreServicio(txtServicioNombre.getText());
+            servicio.setDetalleServicio(txtServicioDetalle.getText());
+            servicio.setPrecioServicio(new BigDecimal(txtServicioPrecio.getText()));
+
+            if (servicioDAO.update(servicio)) {
+                mostrarInfo("Servicio actualizado exitosamente");
+                limpiarCamposServicioCrud();
+                cargarServicios();
+            }
+        } catch (Exception e) {
+            mostrarError("Error al actualizar servicio: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleServicioEliminar() {
+        try {
+            Servicio seleccionado = tableServicios.getSelectionModel().getSelectedItem();
+            if (seleccionado == null) {
+                mostrarError("Seleccione un servicio en la tabla para eliminar.");
+                return;
+            }
+
+            if (servicioDAO.deleteById(seleccionado.getIdServicio())) {
+                mostrarInfo("Servicio eliminado exitosamente");
+                limpiarCamposServicioCrud();
+                cargarServicios();
+            }
+        } catch (Exception e) {
+            mostrarError("Error al eliminar servicio: " + e.getMessage());
+        }
     }
 
     @FXML
@@ -714,11 +1208,34 @@ public class MenuController {
     }
 
     private void cargarReservasServicios() throws SQLException {
-
-        VBox vbox = new VBox(5);
-        Label label = new Label("Use findByReserva() para buscar servicios de una reserva específica");
-        vbox.getChildren().add(label);
-        scrollServiciosReservaciones.setContent(vbox);
+        if (tableServiciosReservaciones == null) return;
+        tableServiciosReservaciones.getColumns().clear();
+        
+        TableColumn<ReservaServicio, Integer> colCedulaCliente = new TableColumn<>("Cédula Cliente");
+        colCedulaCliente.setCellValueFactory(new PropertyValueFactory<>("cedulaCliente"));
+        colCedulaCliente.setPrefWidth(120);
+        
+        TableColumn<ReservaServicio, Integer> colIdHabitacion = new TableColumn<>("ID Habitación");
+        colIdHabitacion.setCellValueFactory(new PropertyValueFactory<>("idHabitacion"));
+        colIdHabitacion.setPrefWidth(120);
+        
+        TableColumn<ReservaServicio, Integer> colIdServicio = new TableColumn<>("ID Servicio");
+        colIdServicio.setCellValueFactory(new PropertyValueFactory<>("idServicio"));
+        colIdServicio.setPrefWidth(100);
+        
+        TableColumn<ReservaServicio, LocalDateTime> colFechaLlegada = new TableColumn<>("Fecha Llegada");
+        colFechaLlegada.setCellValueFactory(new PropertyValueFactory<>("fechaLlegada"));
+        colFechaLlegada.setPrefWidth(180);
+        
+        TableColumn<ReservaServicio, LocalDateTime> colFechaUso = new TableColumn<>("Fecha Uso");
+        colFechaUso.setCellValueFactory(new PropertyValueFactory<>("fechaUso"));
+        colFechaUso.setPrefWidth(180);
+        
+        tableServiciosReservaciones.getColumns().addAll(colCedulaCliente, colIdHabitacion, 
+                                                        colIdServicio, colFechaLlegada, colFechaUso);
+        
+        // Mensaje inicial
+        tableServiciosReservaciones.setPlaceholder(new Label("Añada servicios para ver la lista"));
     }
 
     private void limpiarCamposServicio() {
@@ -726,6 +1243,69 @@ public class MenuController {
         txtServicioIdHabitacion.clear();
         txtServicioFechaLlegada.clear();
         txtServicioIdServicio.clear();
+    }
+
+    private void limpiarCamposServicioCrud() {
+        txtServicioId.clear();
+        txtServicioId.setDisable(false);
+        idServicioOriginal = null;
+        txtServicioNombre.clear();
+        txtServicioDetalle.clear();
+        txtServicioPrecio.clear();
+    }
+
+    private String nullIfBlank(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private LocalDateTime parseFecha(String fecha) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        LocalDate date = LocalDate.parse(fecha, formatter);
+        return date.atStartOfDay();
+    }
+
+    private boolean camposClienteLlenos() {
+        return !txtClienteCedula.getText().isEmpty()
+                && !txtClientePrimerNombre.getText().isEmpty()
+                && !txtClientePrimerApellido.getText().isEmpty()
+                && !txtClienteCalle.getText().isEmpty()
+                && !txtClienteCarrera.getText().isEmpty()
+                && !txtClienteNumero.getText().isEmpty();
+    }
+
+    private boolean camposReservaLlenos() {
+        return !txtReservaCedulaCliente.getText().isEmpty()
+                && !txtReservaFechaLlegada.getText().isEmpty()
+                && !txtReservaIdHabitacion.getText().isEmpty();
+    }
+
+    private boolean camposEmpleadoLlenos() {
+        return !txtEmpleadoCedula.getText().isEmpty()
+                && !txtEmpleadoPrimerNombre.getText().isEmpty()
+                && !txtEmpleadoPrimerApellido.getText().isEmpty()
+                && !txtEmpleadoCalle.getText().isEmpty()
+                && !txtEmpleadoCarrera.getText().isEmpty()
+                && !txtEmpleadoNumero.getText().isEmpty()
+                && !txtEmpleadoIdArea.getText().isEmpty();
+    }
+
+    private boolean camposServicioLlenos() {
+        return !txtServicioId.getText().isEmpty()
+                && !txtServicioNombre.getText().isEmpty()
+                && !txtServicioDetalle.getText().isEmpty()
+                && !txtServicioPrecio.getText().isEmpty();
+    }
+
+    @FXML
+    private void handleCerrarSesion() {
+        try {
+            UserSession.getInstance().logout();
+            App.setRoot("hotel/login");
+        } catch (Exception e) {
+            mostrarError("No se pudo volver al login: " + e.getMessage());
+        }
     }
 
     private void mostrarInfo(String mensaje) {

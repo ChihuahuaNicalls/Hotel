@@ -4,201 +4,226 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<TabPane fx:id="tabPane" tabClosingPolicy="UNAVAILABLE" xmlns:fx="http://javafx.com/fxml/1" fx:controller="hotel.MenuController">
-    <tabs>
-        <!-- Tab Clientes -->
-        <Tab fx:id="tabClientes" text="Clientes">
-            <VBox spacing="10" style="-fx-padding: 10;">
-                <HBox spacing="10">
-                    <Label text="Cédula:" />
-                    <TextField fx:id="txtClienteCedula" promptText="Ingrese cédula" prefWidth="150" />
-                    <Label text="Primer Nombre:" />
-                    <TextField fx:id="txtClientePrimerNombre" promptText="Ingrese nombre" prefWidth="150" />
-                    <Label text="Segundo Nombre:" />
-                    <TextField fx:id="txtClienteSegundoNombre" promptText="Opcional" prefWidth="150" />
-                </HBox>
-                <HBox spacing="10">
-                    <Label text="Primer Apellido:" />
-                    <TextField fx:id="txtClientePrimerApellido" promptText="Ingrese apellido" prefWidth="150" />
-                    <Label text="Segundo Apellido:" />
-                    <TextField fx:id="txtClienteSegundoApellido" promptText="Opcional" prefWidth="150" />
-                </HBox>
-                <HBox spacing="10">
-                    <Label text="Calle:" />
-                    <TextField fx:id="txtClienteCalle" promptText="Ingrese calle" prefWidth="150" />
-                    <Label text="Carrera:" />
-                    <TextField fx:id="txtClienteCarrera" promptText="Ingrese carrera" prefWidth="150" />
-                    <Label text="Número:" />
-                    <TextField fx:id="txtClienteNumero" promptText="Ingrese número" prefWidth="100" />
-                </HBox>
-                <HBox spacing="10">
-                    <Label text="Complemento:" />
-                    <TextField fx:id="txtClienteComplemento" promptText="Apto, Piso, etc." prefWidth="150" />
-                    <Label text="Teléfonos:" />
-                    <TextField fx:id="txtClienteTelefonos" promptText="Separados por comas" prefWidth="200" />
-                    <Label text="Emails:" />
-                    <TextField fx:id="txtClienteEmails" promptText="Separados por comas" prefWidth="200" />
-                </HBox>
-                <HBox spacing="10">
-                    <Button fx:id="btnClienteCrear" text="Crear Cliente" onAction="#handleClienteCrear" />
-                    <Button fx:id="btnClienteActualizar" text="Actualizar Cliente" onAction="#handleClienteActualizar" />
-                </HBox>
-                <Label text="Clientes Registrados:" style="-fx-font-weight: bold;" />
-                <ScrollPane fx:id="scrollClientes" fitToWidth="true" style="-fx-control-inner-background: #ffffff;" prefHeight="200" />
-            </VBox>
-        </Tab>
+<BorderPane xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="hotel.MenuController">
+    <top>
+        <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 10;">
+            <Label text="Menú principal" style="-fx-font-size: 14; -fx-font-weight: bold;" />
+            <Button fx:id="btnCerrarSesion" text="Cerrar sesión" onAction="#handleCerrarSesion" />
+        </HBox>
+    </top>
+    <center>
+        <TabPane fx:id="tabPane" tabClosingPolicy="UNAVAILABLE">
+            <tabs>
+                <!-- Tab Clientes -->
+                <Tab fx:id="tabClientes" text="Clientes">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <HBox spacing="10">
+                            <Label text="Cédula:" />
+                            <TextField fx:id="txtClienteCedula" promptText="Ingrese cédula" prefWidth="150" />
+                            <Label text="Primer Nombre:" />
+                            <TextField fx:id="txtClientePrimerNombre" promptText="Ingrese nombre" prefWidth="150" />
+                            <Label text="Segundo Nombre:" />
+                            <TextField fx:id="txtClienteSegundoNombre" promptText="Opcional" prefWidth="150" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Primer Apellido:" />
+                            <TextField fx:id="txtClientePrimerApellido" promptText="Ingrese apellido" prefWidth="150" />
+                            <Label text="Segundo Apellido:" />
+                            <TextField fx:id="txtClienteSegundoApellido" promptText="Opcional" prefWidth="150" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Calle:" />
+                            <TextField fx:id="txtClienteCalle" promptText="Ingrese calle" prefWidth="150" />
+                            <Label text="Carrera:" />
+                            <TextField fx:id="txtClienteCarrera" promptText="Ingrese carrera" prefWidth="150" />
+                            <Label text="Número:" />
+                            <TextField fx:id="txtClienteNumero" promptText="Ingrese número" prefWidth="100" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Complemento:" />
+                            <TextField fx:id="txtClienteComplemento" promptText="Apto, Piso, etc." prefWidth="150" />
+                            <Label text="Teléfonos:" />
+                            <TextField fx:id="txtClienteTelefonos" promptText="Separados por comas" prefWidth="200" />
+                            <Label text="Emails:" />
+                            <TextField fx:id="txtClienteEmails" promptText="Separados por comas" prefWidth="200" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Button fx:id="btnClienteCrear" text="Crear Cliente" onAction="#handleClienteCrear" />
+                            <Button fx:id="btnClienteActualizar" text="Actualizar Cliente" onAction="#handleClienteActualizar" />
+                        </HBox>
+                        <Label text="Clientes Registrados:" style="-fx-font-weight: bold;" />
+                        <TableView fx:id="tableClientes" prefHeight="250" />
+                    </VBox>
+                </Tab>
 
-        <!-- Tab Reservas -->
-        <Tab fx:id="tabReservas" text="Reservas">
-            <VBox spacing="10" style="-fx-padding: 10;">
-                <HBox spacing="10">
-                    <Label text="Cédula Cliente:" />
-                    <TextField fx:id="txtReservaCedulaCliente" promptText="Ingrese cédula" prefWidth="150" />
-                    <Label text="Fecha Llegada:" />
-                    <TextField fx:id="txtReservaFechaLlegada" promptText="YYYY-MM-DD" prefWidth="150" />
-                    <Label text="ID Habitación:" />
-                    <TextField fx:id="txtReservaIdHabitacion" promptText="Ingrese ID" prefWidth="100" />
-                    <Label text="Fecha Salida:" />
-                    <TextField fx:id="txtReservaCarrera" promptText="YYYY-MM-DD" prefWidth="150" />
-                </HBox>
-                <HBox spacing="10">
-                    <Button fx:id="btnReservaCrear" text="Crear Reserva" onAction="#handleReservaCrear" />
-                    <Button fx:id="btnReservaActualizar" text="Actualizar Reserva" onAction="#handleReservaActualizar" />
-                    <Button fx:id="btnReservaTerminar" text="Terminar Reserva" onAction="#handleReservaTerminar" />
-                </HBox>
-                <Label text="Reservas Registradas:" style="-fx-font-weight: bold;" />
-                <ScrollPane fx:id="scrollReservas" fitToWidth="true" style="-fx-control-inner-background: #ffffff;" prefHeight="200" />
-            </VBox>
-        </Tab>
+                <!-- Tab Reservas -->
+                <Tab fx:id="tabReservas" text="Reservas">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <HBox spacing="10">
+                            <Label text="Cédula Cliente:" />
+                            <TextField fx:id="txtReservaCedulaCliente" promptText="Ingrese cédula" prefWidth="150" />
+                            <Label text="Fecha Llegada:" />
+                            <TextField fx:id="txtReservaFechaLlegada" promptText="DD/MM/AAAA" prefWidth="150" />
+                            <Label text="ID Habitación:" />
+                            <TextField fx:id="txtReservaIdHabitacion" promptText="Ingrese ID" prefWidth="100" />
+                            <Label text="Fecha Salida:" />
+                            <TextField fx:id="txtReservaCarrera" promptText="DD/MM/AAAA" prefWidth="150" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Button fx:id="btnReservaCrear" text="Crear Reserva" onAction="#handleReservaCrear" />
+                            <Button fx:id="btnReservaActualizar" text="Actualizar Reserva" onAction="#handleReservaActualizar" />
+                            <Button fx:id="btnReservaTerminar" text="Terminar Reserva" onAction="#handleReservaTerminar" />
+                        </HBox>
+                        <Label text="Reservas Registradas:" style="-fx-font-weight: bold;" />
+                        <TableView fx:id="tableReservas" prefHeight="250" />
+                    </VBox>
+                </Tab>
 
-        <!-- Tab Servicios -->
-        <Tab fx:id="tabServicios" text="Servicios">
-            <VBox spacing="10" style="-fx-padding: 10;">
-                <Label text="Servicios Disponibles:" style="-fx-font-weight: bold;" />
-                <ScrollPane fx:id="scrollListaServicios" fitToWidth="true" style="-fx-control-inner-background: #ffffff;" prefHeight="300" />
-            </VBox>
-        </Tab>
+                <!-- Tab Servicios -->
+                <Tab fx:id="tabServicios" text="Servicios">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <HBox spacing="10">
+                            <Label text="ID Servicio:" />
+                            <TextField fx:id="txtServicioId" promptText="Ingrese ID" prefWidth="100" />
+                            <Label text="Nombre:" />
+                            <TextField fx:id="txtServicioNombre" promptText="Nombre del servicio" prefWidth="180" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Detalle:" />
+                            <TextField fx:id="txtServicioDetalle" promptText="Descripción corta" prefWidth="260" />
+                            <Label text="Precio:" />
+                            <TextField fx:id="txtServicioPrecio" promptText="Valor en pesos" prefWidth="120" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Button fx:id="btnServicioCrear" text="Crear Servicio" onAction="#handleServicioCrear" />
+                            <Button fx:id="btnServicioActualizar" text="Actualizar Servicio" onAction="#handleServicioActualizar" />
+                            <Button fx:id="btnServicioEliminar" text="Eliminar Servicio" onAction="#handleServicioEliminar" />
+                        </HBox>
+                        <Label text="Servicios Disponibles:" style="-fx-font-weight: bold;" />
+                        <TableView fx:id="tableServicios" prefHeight="320" />
+                    </VBox>
+                </Tab>
 
-        <!-- Tab Empleados -->
-        <Tab fx:id="tabEmpleados" text="Empleados">
-            <VBox spacing="10" style="-fx-padding: 10;">
-                <HBox spacing="10">
-                    <Label text="Cédula:" />
-                    <TextField fx:id="txtEmpleadoCedula" promptText="Ingrese cédula" prefWidth="150" />
-                    <Label text="Primer Nombre:" />
-                    <TextField fx:id="txtEmpleadoPrimerNombre" promptText="Ingrese nombre" prefWidth="150" />
-                    <Label text="Segundo Nombre:" />
-                    <TextField fx:id="txtEmpleadoSegundoNombre" promptText="Opcional" prefWidth="150" />
-                </HBox>
-                <HBox spacing="10">
-                    <Label text="Primer Apellido:" />
-                    <TextField fx:id="txtEmpleadoPrimerApellido" promptText="Ingrese apellido" prefWidth="150" />
-                    <Label text="Segundo Apellido:" />
-                    <TextField fx:id="txtEmpleadoSegundoApellido" promptText="Opcional" prefWidth="150" />
-                </HBox>
-                <HBox spacing="10">
-                    <Label text="Calle:" />
-                    <TextField fx:id="txtEmpleadoCalle" promptText="Ingrese calle" prefWidth="150" />
-                    <Label text="Carrera:" />
-                    <TextField fx:id="txtEmpleadoCarrera" promptText="Ingrese carrera" prefWidth="150" />
-                    <Label text="Número:" />
-                    <TextField fx:id="txtEmpleadoNumero" promptText="Ingrese número" prefWidth="100" />
-                </HBox>
-                <HBox spacing="10">
-                    <Label text="Complemento:" />
-                    <TextField fx:id="txtEmpleadoComplemento" promptText="Apto, Piso, etc." prefWidth="150" />
-                    <Label text="ID Área:" />
-                    <TextField fx:id="txtEmpleadoIdArea" promptText="Ingrese ID área" prefWidth="100" />
-                    <Label text="Teléfonos:" />
-                    <TextField fx:id="txtEmpleadoTelefonos" promptText="Separados por comas" prefWidth="150" />
-                </HBox>
-                <HBox spacing="10">
-                    <Label text="Emails:" />
-                    <TextField fx:id="txtEmpleadoEmails" promptText="Separados por comas" prefWidth="200" />
-                </HBox>
-                <HBox spacing="10">
-                    <Button fx:id="btnEmpleadoCrear" text="Crear Empleado" onAction="#handleEmpleadoCrear" />
-                    <Button fx:id="btnEmpleadoActualizar" text="Actualizar Empleado" onAction="#handleEmpleadoActualizar" />
-                    <Button fx:id="btnEmpleadoEliminar" text="Eliminar Empleado" onAction="#handleEmpleadoEliminar" />
-                </HBox>
-                <Label text="Empleados Registrados:" style="-fx-font-weight: bold;" />
-                <ScrollPane fx:id="scrollEmpleados" fitToWidth="true" style="-fx-control-inner-background: #ffffff;" prefHeight="200" />
-            </VBox>
-        </Tab>
+                <!-- Tab Empleados -->
+                <Tab fx:id="tabEmpleados" text="Empleados">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <HBox spacing="10">
+                            <Label text="Cédula:" />
+                            <TextField fx:id="txtEmpleadoCedula" promptText="Ingrese cédula" prefWidth="150" />
+                            <Label text="Primer Nombre:" />
+                            <TextField fx:id="txtEmpleadoPrimerNombre" promptText="Ingrese nombre" prefWidth="150" />
+                            <Label text="Segundo Nombre:" />
+                            <TextField fx:id="txtEmpleadoSegundoNombre" promptText="Opcional" prefWidth="150" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Primer Apellido:" />
+                            <TextField fx:id="txtEmpleadoPrimerApellido" promptText="Ingrese apellido" prefWidth="150" />
+                            <Label text="Segundo Apellido:" />
+                            <TextField fx:id="txtEmpleadoSegundoApellido" promptText="Opcional" prefWidth="150" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Calle:" />
+                            <TextField fx:id="txtEmpleadoCalle" promptText="Ingrese calle" prefWidth="150" />
+                            <Label text="Carrera:" />
+                            <TextField fx:id="txtEmpleadoCarrera" promptText="Ingrese carrera" prefWidth="150" />
+                            <Label text="Número:" />
+                            <TextField fx:id="txtEmpleadoNumero" promptText="Ingrese número" prefWidth="100" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Complemento:" />
+                            <TextField fx:id="txtEmpleadoComplemento" promptText="Apto, Piso, etc." prefWidth="150" />
+                            <Label text="ID Área:" />
+                            <TextField fx:id="txtEmpleadoIdArea" promptText="Ingrese ID área" prefWidth="100" />
+                            <Label text="Teléfonos:" />
+                            <TextField fx:id="txtEmpleadoTelefonos" promptText="Separados por comas" prefWidth="150" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Emails:" />
+                            <TextField fx:id="txtEmpleadoEmails" promptText="Separados por comas" prefWidth="200" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Button fx:id="btnEmpleadoCrear" text="Crear Empleado" onAction="#handleEmpleadoCrear" />
+                            <Button fx:id="btnEmpleadoActualizar" text="Actualizar Empleado" onAction="#handleEmpleadoActualizar" />
+                            <Button fx:id="btnEmpleadoEliminar" text="Eliminar Empleado" onAction="#handleEmpleadoEliminar" />
+                        </HBox>
+                        <Label text="Empleados Registrados:" style="-fx-font-weight: bold;" />
+                        <TableView fx:id="tableEmpleados" prefHeight="250" />
+                    </VBox>
+                </Tab>
 
-        <!-- Tab Asignar Empleados -->
-        <Tab fx:id="tabAsignarEmpleados" text="Asignar Empleados">
-            <VBox spacing="10" style="-fx-padding: 10;">
-                <HBox spacing="10">
-                    <Label text="Cédula Cliente:" />
-                    <TextField fx:id="txtAsignarCedulaCliente" promptText="Ingrese cédula" prefWidth="150" />
-                    <Label text="ID Habitación:" />
-                    <TextField fx:id="txtAsignarIdHabitacion" promptText="Ingrese ID" prefWidth="100" />
-                    <Label text="Fecha Llegada:" />
-                    <TextField fx:id="txtAsignarFechaLlegada" promptText="YYYY-MM-DD" prefWidth="150" />
-                </HBox>
-                <HBox spacing="10">
-                    <Label text="Cédula Empleado:" />
-                    <TextField fx:id="txtAsignarCedulaEmpleado" promptText="Ingrese cédula" prefWidth="150" />
-                    <Label text="ID Servicio:" />
-                    <TextField fx:id="txtAsignarIdServicio" promptText="Ingrese ID" prefWidth="100" />
-                </HBox>
-                <HBox spacing="10">
-                    <Button fx:id="btnAsignarEmpleado" text="Asignar Empleado" onAction="#handleAsignarEmpleado" />
-                    <Button fx:id="btnDesasignarEmpleado" text="Desasignar Empleado" onAction="#handleDesasignarEmpleado" />
-                </HBox>
-                <Label text="Asignaciones:" style="-fx-font-weight: bold;" />
-                <ScrollPane fx:id="scrollAsignarReservasEmpleados" fitToWidth="true" style="-fx-control-inner-background: #ffffff;" prefHeight="200" />
-            </VBox>
-        </Tab>
+                <!-- Tab Asignar Empleados -->
+                <Tab fx:id="tabAsignarEmpleados" text="Asignar Empleados">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <HBox spacing="10">
+                            <Label text="Cédula Cliente:" />
+                            <TextField fx:id="txtAsignarCedulaCliente" promptText="Ingrese cédula" prefWidth="150" />
+                            <Label text="ID Habitación:" />
+                            <TextField fx:id="txtAsignarIdHabitacion" promptText="Ingrese ID" prefWidth="100" />
+                            <Label text="Fecha Llegada:" />
+                            <TextField fx:id="txtAsignarFechaLlegada" promptText="YYYY-MM-DD" prefWidth="150" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Cédula Empleado:" />
+                            <TextField fx:id="txtAsignarCedulaEmpleado" promptText="Ingrese cédula" prefWidth="150" />
+                            <Label text="ID Servicio:" />
+                            <TextField fx:id="txtAsignarIdServicio" promptText="Ingrese ID" prefWidth="100" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Button fx:id="btnAsignarEmpleado" text="Asignar Empleado" onAction="#handleAsignarEmpleado" />
+                            <Button fx:id="btnDesasignarEmpleado" text="Desasignar Empleado" onAction="#handleDesasignarEmpleado" />
+                        </HBox>
+                        <Label text="Asignaciones:" style="-fx-font-weight: bold;" />
+                        <TableView fx:id="tableAsignaciones" prefHeight="250" />
+                    </VBox>
+                </Tab>
 
-        <!-- Tab Habitaciones -->
-        <Tab fx:id="tabHabitaciones" text="Habitaciones">
-            <VBox spacing="10" style="-fx-padding: 10;">
-                <HBox spacing="10">
-                    <Label text="ID Habitación:" />
-                    <TextField fx:id="txtHabitacionId" promptText="Ingrese ID" prefWidth="150" />
-                    <Button fx:id="btnLiberarHabitacion" text="Liberar Habitación" onAction="#handleLiberarHabitacion" />
-                    <Button fx:id="btnTerminarMantenimiento" text="Terminar Mantenimiento" onAction="#handleTerminarMantenimiento" />
-                </HBox>
-                <Label text="Estado de Habitaciones:" style="-fx-font-weight: bold;" />
-                <ScrollPane fx:id="scrollHabitaciones" fitToWidth="true" style="-fx-control-inner-background: #ffffff;" prefHeight="300" />
-            </VBox>
-        </Tab>
+                <!-- Tab Habitaciones -->
+                <Tab fx:id="tabHabitaciones" text="Habitaciones">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <HBox spacing="10">
+                            <Label text="ID Habitación:" />
+                            <TextField fx:id="txtHabitacionId" promptText="Ingrese ID" prefWidth="150" />
+                            <Button fx:id="btnLiberarHabitacion" text="Liberar Habitación" onAction="#handleLiberarHabitacion" />
+                            <Button fx:id="btnTerminarMantenimiento" text="Terminar Mantenimiento" onAction="#handleTerminarMantenimiento" />
+                        </HBox>
+                        <Label text="Estado de Habitaciones:" style="-fx-font-weight: bold;" />
+                        <TableView fx:id="tableHabitaciones" prefHeight="350" />
+                    </VBox>
+                </Tab>
 
-        <!-- Tab Adicionar Servicios -->
-        <Tab fx:id="tabAdicionServicios" text="Adicionar Servicios">
-            <VBox spacing="10" style="-fx-padding: 10;">
-                <HBox spacing="10">
-                    <Label text="Cédula Cliente:" />
-                    <TextField fx:id="txtServicioCedulaCliente" promptText="Ingrese cédula" prefWidth="150" />
-                    <Label text="ID Habitación:" />
-                    <TextField fx:id="txtServicioIdHabitacion" promptText="Ingrese ID" prefWidth="100" />
-                    <Label text="Fecha Llegada:" />
-                    <TextField fx:id="txtServicioFechaLlegada" promptText="YYYY-MM-DDTHH:MM:SS" prefWidth="180" />
-                </HBox>
-                <HBox spacing="10">
-                    <Label text="ID Servicio:" />
-                    <TextField fx:id="txtServicioIdServicio" promptText="Ingrese ID" prefWidth="100" />
-                    <Button fx:id="btnAnadirServicio" text="Añadir Servicio" onAction="#handleAnadirServicio" />
-                </HBox>
-                <Label text="Servicios Disponibles:" style="-fx-font-weight: bold;" />
-                <ScrollPane fx:id="scrollListaServicios" fitToWidth="true" style="-fx-control-inner-background: #ffffff;" prefHeight="150" />
-                <Label text="Servicios de Reservaciones:" style="-fx-font-weight: bold;" />
-                <ScrollPane fx:id="scrollServiciosReservaciones" fitToWidth="true" style="-fx-control-inner-background: #ffffff;" prefHeight="150" />
-            </VBox>
-        </Tab>
+                <!-- Tab Adicionar Servicios -->
+                <Tab fx:id="tabAdicionServicios" text="Adicionar Servicios">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <HBox spacing="10">
+                            <Label text="Cédula Cliente:" />
+                            <TextField fx:id="txtServicioCedulaCliente" promptText="Ingrese cédula" prefWidth="150" />
+                            <Label text="ID Habitación:" />
+                            <TextField fx:id="txtServicioIdHabitacion" promptText="Ingrese ID" prefWidth="100" />
+                            <Label text="Fecha Llegada:" />
+                            <TextField fx:id="txtServicioFechaLlegada" promptText="YYYY-MM-DDTHH:MM:SS" prefWidth="180" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="ID Servicio:" />
+                            <TextField fx:id="txtServicioIdServicio" promptText="Ingrese ID" prefWidth="100" />
+                            <Button fx:id="btnAnadirServicio" text="Añadir Servicio" onAction="#handleAnadirServicio" />
+                        </HBox>
+                        <Label text="Servicios de Reservaciones:" style="-fx-font-weight: bold;" />
+                        <TableView fx:id="tableServiciosReservaciones" prefHeight="300" />
+                    </VBox>
+                </Tab>
 
-        <!-- Tab Consultas -->
-        <Tab fx:id="tabConsultas" text="Consultas">
-            <VBox spacing="10" style="-fx-padding: 10;">
-                <HBox spacing="10">
-                    <Button fx:id="btnDisponibilidadHabitaciones" text="Ver Disponibilidad de Habitaciones" />
-                    <Button fx:id="btnConsultaGeneral" text="Consulta General" />
-                </HBox>
-                <Label text="Resultados:" style="-fx-font-weight: bold;" />
-                <ScrollPane fx:id="scrollConsultas" fitToWidth="true" style="-fx-control-inner-background: #ffffff;" prefHeight="300" />
-            </VBox>
-        </Tab>
-    </tabs>
-</TabPane>
+                <!-- Tab Consultas -->
+                <Tab fx:id="tabConsultas" text="Consultas">
+                    <VBox spacing="10" style="-fx-padding: 10;">
+                        <HBox spacing="10">
+                            <Button fx:id="btnDisponibilidadHabitaciones" text="Ver Disponibilidad de Habitaciones" />
+                            <Button fx:id="btnConsultaGeneral" text="Consulta General" />
+                        </HBox>
+                        <Label text="Resultados:" style="-fx-font-weight: bold;" />
+                        <TableView fx:id="tableConsultas" prefHeight="350" />
+                    </VBox>
+                </Tab>
+            </tabs>
+        </TabPane>
+    </center>
+</BorderPane>

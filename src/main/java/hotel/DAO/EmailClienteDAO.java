@@ -45,4 +45,17 @@ public class EmailClienteDAO {
             }
         }
     }
+
+    public List<EmailCliente> findAll() throws SQLException {
+        final String sql = "SELECT * FROM public.emailcliente";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
+            try (ResultSet rs = ps.executeQuery()) {
+                List<EmailCliente> lista = new ArrayList<>();
+                while (rs.next()) {
+                    lista.add(new EmailCliente(rs.getObject("cedulacliente", Integer.class), rs.getString("correocliente")));
+                }
+                return lista;
+            }
+        }
+    }
 }

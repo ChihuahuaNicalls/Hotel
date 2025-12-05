@@ -1,6 +1,8 @@
 
 package hotel.DB;
 
+import hotel.UserSession;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -31,5 +33,17 @@ public class PostgreSQLConnection extends DBConnection{
         connectionProps.setProperty("user", username);
         connectionProps.setProperty("password", password);
         return DriverManager.getConnection(url, connectionProps);
+    }
+
+    /**
+     * Obtiene una conexión usando las credenciales del usuario logueado en la sesión actual
+     */
+    @Override
+    public Connection getConn() throws SQLException {
+        UserSession session = UserSession.getInstance();
+        if (session.getUsername() != null && session.getPassword() != null) {
+            return getConnectionWithCredentials(session.getUsername(), session.getPassword());
+        }
+        throw new SQLException("No hay usuario logueado. Por favor inicie sesión primero.");
     }
 }

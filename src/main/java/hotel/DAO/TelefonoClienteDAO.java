@@ -45,4 +45,17 @@ public class TelefonoClienteDAO {
             }
         }
     }
+
+    public List<TelefonoCliente> findAll() throws SQLException {
+        final String sql = "SELECT * FROM public.telefonocliente";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
+            try (ResultSet rs = ps.executeQuery()) {
+                List<TelefonoCliente> lista = new ArrayList<>();
+                while (rs.next()) {
+                    lista.add(new TelefonoCliente(rs.getObject("cedulacliente", Integer.class), rs.getString("telefonocliente")));
+                }
+                return lista;
+            }
+        }
+    }
 }
