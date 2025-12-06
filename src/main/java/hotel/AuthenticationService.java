@@ -17,7 +17,7 @@ public class AuthenticationService {
                 return true;
             }
         } catch (SQLException e) {
-            System.err.println("Error durante la autenticación: " + e.getMessage());
+            System.err.println("Error durante la autenticacion: " + e.getMessage());
             e.printStackTrace();
         }
         return false;

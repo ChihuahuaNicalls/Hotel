@@ -1,9 +1,9 @@
 package hotel;
 
 public enum UserType {
-    RECEPCION("Recepción"),
+    RECEPCION("Recepcion"),
     PERSONAL_SERVICIO("Personal de Servicio"),
-    ADMINISTRACION("Administración"),
+    ADMINISTRACION("Administracion"),
     DB_ADMIN("Administrador DB");
 
     private final String displayName;

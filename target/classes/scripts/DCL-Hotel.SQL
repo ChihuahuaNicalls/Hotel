@@ -2,16 +2,16 @@
 CREATE ROLE lectura_completa;
 CREATE ROLE escritura_completa;
 
---2. Roles operativos por área
+--2. Roles operativos por area
 CREATE ROLE recepcion;
 CREATE ROLE personal_servicio;
 CREATE ROLE administracion;
 
---3. Rol de administración de BD
+--3. Rol de administracion de BD
 CREATE ROLE db_admin LOGIN PASSWORD 'adminHotel123';
 ALTER ROLE db_admin CREATEDB CREATEROLE;
 
---4. Jerarquía de permisos 
+--4. Jerarquia de permisos 
 GRANT lectura_completa TO db_admin;
 GRANT escritura_completa TO db_admin;
 
@@ -29,74 +29,81 @@ GRANT USAGE ON SCHEMA public TO recepcion;
 GRANT USAGE ON SCHEMA public TO personal_servicio;
 GRANT USAGE ON SCHEMA public TO administracion;
 
---7. Permisos específicos por área (según enunciado)
---Gestión completa de clientes y sus datos de contacto
+--7. Permisos especificos por area
+--Gestion completa de clientes y sus datos de contacto
 GRANT SELECT, INSERT, UPDATE ON Cliente TO recepcion;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TelefonoCliente TO recepcion;
 GRANT SELECT, INSERT, UPDATE, DELETE ON EmailCliente TO recepcion;
 
---Gestión completa de reservas
+--Gestion completa de reservas
 GRANT SELECT, INSERT, UPDATE ON Reserva TO recepcion;
 
 --Consulta de habitaciones (solo lectura para verificar disponibilidad)
 GRANT SELECT ON Habitacion TO recepcion;
 
---Consulta de categorías de habitaciones
+--Consulta de categorias de habitaciones
 GRANT SELECT ON Categoria TO recepcion;
 
---Consulta y actualización de habitaciones
+--Consulta y actualizacion de habitaciones
 GRANT SELECT, UPDATE ON Habitacion TO personal_servicio;
-
---Consulta de reservas para identificar huéspedes
-GRANT SELECT ON Reserva TO personal_servicio;
-
---Consulta de clientes para verificar información
-GRANT SELECT ON Cliente TO personal_servicio;
-
---Permisos para ver teléfonos y emails de clientes (necesarios para la vista de Clientes)
 GRANT SELECT ON TelefonoCliente TO personal_servicio;
 GRANT SELECT ON EmailCliente TO personal_servicio;
 
---Registro de servicios consumidos por huéspedes
+--Consulta de reservas para identificar huespedes
+GRANT SELECT ON Reserva TO personal_servicio;
+
+--Consulta de clientes para verificar informacion
+GRANT SELECT ON Cliente TO personal_servicio;
+
+--Permisos para ver telefonos y emails de clientes (necesarios para la vista de clientes)
+GRANT SELECT ON TelefonoCliente TO personal_servicio;
+GRANT SELECT ON EmailCliente TO personal_servicio;
+
+--Registro de servicios consumidos por huespedes
 GRANT SELECT, INSERT ON Reserva_Servicio TO personal_servicio;
 
 --Consulta de servicios disponibles
 GRANT SELECT ON Servicio TO personal_servicio;
 
---Consulta de áreas para servicios
+--Consulta de areas para servicios
 GRANT SELECT ON Area TO personal_servicio;
 
---Consulta y registro de asignaciones (empleado atiende habitación)
+--Consulta y registro de asignaciones (empleado atiende habitacion)
 GRANT SELECT, INSERT ON Atiende TO personal_servicio;
 
---Consulta de categorías (necesaria para calcular precios en disponibilidad)
+--Consulta de categorias (necesaria para calcular precios en disponibilidad)
 GRANT SELECT ON Categoria TO personal_servicio;
 
 
---Gestión completa de empleados y sus datos de contacto
+--Gestion completa de empleados y sus datos de contacto
 GRANT SELECT, INSERT, UPDATE, DELETE ON Empleado TO administracion;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TelefonoEmpleado TO administracion;
 GRANT SELECT, INSERT, UPDATE, DELETE ON EmailEmpleado TO administracion;
 
---Gestión completa de servicios
+--Vista de tabla de reservas
+GRANT SELECT ON Reserva TO administracion;
+
+--Gestion completa de servicios
 GRANT SELECT, INSERT, UPDATE, DELETE ON Servicio TO administracion;
 
---Gestión de áreas
+--Gestion de areas
 GRANT SELECT, INSERT, UPDATE, DELETE ON Area TO administracion;
 
---Gestión de categorías de habitaciones
+--Gestion de categorias de habitaciones
 GRANT SELECT, INSERT, UPDATE, DELETE ON Categoria TO administracion;
 
---Gestión de habitaciones
+--Gestion de habitaciones
 GRANT SELECT, INSERT, UPDATE, DELETE ON Habitacion TO administracion;
 
---Acceso analítico: consultas de lectura sobre datos operativos
+--Gestion de asignaciones de empleados a habitaciones y servicios
+GRANT SELECT, INSERT, UPDATE, DELETE ON Atiende TO administracion;
+
+--Acceso analitico: consultas de lectura sobre datos operativos
 GRANT SELECT ON Cliente TO administracion;
 GRANT SELECT ON TelefonoCliente TO administracion;
 GRANT SELECT ON EmailCliente TO administracion;
 GRANT SELECT ON Reserva TO administracion;
 GRANT SELECT ON Reserva_Servicio TO administracion;
-GRANT SELECT ON Atiende TO administracion;
 
 --8. Privilegios por defecto adicionales
 ALTER DEFAULT PRIVILEGES FOR ROLE CURRENT_USER IN SCHEMA public

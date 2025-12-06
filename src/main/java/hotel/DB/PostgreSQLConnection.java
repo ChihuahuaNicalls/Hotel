@@ -16,7 +16,6 @@ public class PostgreSQLConnection extends DBConnection{
 
     private PostgreSQLConnection() {
         url = "jdbc:postgresql://"+HOST+":"+PORT+"/"+DATABASE;
-        // No se configuran credenciales aquí
     }
 
     public static PostgreSQLConnection getConnector (){
@@ -24,10 +23,7 @@ public class PostgreSQLConnection extends DBConnection{
             instancia = new PostgreSQLConnection();
         return instancia;
     }
-    
-    /**
-     * Obtiene una conexión con credenciales específicas
-     */
+
     public Connection getConnectionWithCredentials(String username, String password) throws SQLException {
         Properties connectionProps = new Properties();
         connectionProps.setProperty("user", username);
@@ -35,15 +31,12 @@ public class PostgreSQLConnection extends DBConnection{
         return DriverManager.getConnection(url, connectionProps);
     }
 
-    /**
-     * Obtiene una conexión usando las credenciales del usuario logueado en la sesión actual
-     */
     @Override
     public Connection getConn() throws SQLException {
         UserSession session = UserSession.getInstance();
         if (session.getUsername() != null && session.getPassword() != null) {
             return getConnectionWithCredentials(session.getUsername(), session.getPassword());
         }
-        throw new SQLException("No hay usuario logueado. Por favor inicie sesión primero.");
+        throw new SQLException("No hay usuario logueado. Por favor inicie sesion primero.");
     }
 }

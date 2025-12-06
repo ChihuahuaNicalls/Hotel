@@ -8,9 +8,6 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 
-/**
- * JavaFX App
- */
 public class App extends Application {
 
     private static Scene scene;
@@ -42,7 +39,6 @@ public class App extends Application {
     }
 
     private static Parent loadFXML(String fxml) throws IOException {
-        // Si la ruta ya incluye el paquete, usar directamente; si no, buscar en resources
         String resourcePath = fxml.endsWith(".fxml") ? fxml : fxml + ".fxml";
         FXMLLoader fxmlLoader = new FXMLLoader(App.class.getResource("/" + resourcePath));
         return fxmlLoader.load();

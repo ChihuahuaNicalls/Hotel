@@ -38,9 +38,9 @@ public class AtiendeDAO {
             ps.setObject(4, fechaLlegada);
             ps.setObject(5, idHabitacion);
             ps.setObject(6, idServicio);
-            ps.executeUpdate();
+            int affected = ps.executeUpdate();
+            return affected > 0;
         }
-        return true;
     }
 
     public List<Atiende> findByReserva(Integer cedulaCliente, Integer idHabitacion, LocalDateTime fechaLlegada) throws SQLException {
