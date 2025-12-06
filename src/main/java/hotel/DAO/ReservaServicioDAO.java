@@ -55,6 +55,15 @@ public class ReservaServicioDAO {
         }
     }
 
+    public List<ReservaServicio> findAll() throws SQLException {
+        final String sql = "SELECT * FROM public.reserva_servicio ORDER BY cedulacliente, idhabitacion, fechallegada, fechauso";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            List<ReservaServicio> lista = new ArrayList<>();
+            while (rs.next()) lista.add(mapear(rs));
+            return lista;
+        }
+    }
+
     private ReservaServicio mapear(ResultSet rs) throws SQLException {
         return new ReservaServicio(
             rs.getObject("idservicio", Integer.class),

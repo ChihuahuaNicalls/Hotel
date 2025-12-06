@@ -57,6 +57,15 @@ public class AtiendeDAO {
         }
     }
 
+    public List<Atiende> findAll() throws SQLException {
+        final String sql = "SELECT * FROM public.atiende ORDER BY cedulacliente, idhabitacion, fechallegada, fechauso";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            List<Atiende> lista = new ArrayList<>();
+            while (rs.next()) lista.add(mapear(rs));
+            return lista;
+        }
+    }
+
     private Atiende mapear(ResultSet rs) throws SQLException {
         return new Atiende(
             rs.getObject("cedulacliente", Integer.class),

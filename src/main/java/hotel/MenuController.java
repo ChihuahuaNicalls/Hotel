@@ -18,6 +18,15 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import javafx.collections.ObservableList;
+import javafx.collections.FXCollections;
 
 public class MenuController {
 
@@ -110,7 +119,9 @@ public class MenuController {
     @FXML
     private TextField txtEmpleadoEmails;
     @FXML
-    private TextField txtEmpleadoIdArea;
+    private TextField txtEmpleadoArea;
+    @FXML
+    private TextField txtEmpleadoCargo;
     @FXML
     private Button btnEmpleadoCrear;
     @FXML
@@ -144,7 +155,7 @@ public class MenuController {
     @FXML
     private Button btnTerminarMantenimiento;
     @FXML
-    private TableView<Habitacion> tableHabitaciones;
+    private TableView<ObservableList<String>> tableHabitaciones;
 
     @FXML
     private TextField txtServicioId;
@@ -174,13 +185,15 @@ public class MenuController {
     private TableView<Servicio> tableServicios;
     @FXML
     private TableView<ReservaServicio> tableServiciosReservaciones;
+    @FXML
+    private TableView<Servicio> tableServiciosLista;
 
     @FXML
     private Button btnDisponibilidadHabitaciones;
     @FXML
     private Button btnConsultaGeneral;
     @FXML
-    private TableView<Object> tableConsultas;
+    private TableView<ObservableList<String>> tableConsultas;
 
     @FXML
     private Button btnCerrarSesion;
@@ -204,14 +217,21 @@ public class MenuController {
     private Integer cedulaEmpleadoOriginal;
     private Integer idServicioOriginal;
     
-    // Control de clicks para deselección
+    // Control de clicks para deseleccion
     private Cliente lastSelectedCliente = null;
     private Reserva lastSelectedReserva = null;
     private Empleado lastSelectedEmpleado = null;
     private Servicio lastSelectedServicio = null;
 
+    // Mapas en memoria para contactos (evitar N+1 en seleccion)
+    private Map<Integer, List<String>> telefonosPorCedulaClientes = new HashMap<>();
+    private Map<Integer, List<String>> emailsPorCedulaClientes = new HashMap<>();
+
+    private Map<Integer, List<String>> telefonosPorCedulaEmpleados = new HashMap<>();
+    private Map<Integer, List<String>> emailsPorCedulaEmpleados = new HashMap<>();
+
     /**
-     * Método que se ejecuta al inicializar el controlador
+     * Metodo que se ejecuta al inicializar el controlador
      */
     @FXML
     public void initialize() {
@@ -240,7 +260,7 @@ public class MenuController {
     }
 
     /**
-     * Configura qué pestañas se muestran según el tipo de usuario logueado
+     * Configura que pestañas se muestran segun el tipo de usuario logueado
      */
     private void configurarTabsSegunUsuario() {
         UserSession session = UserSession.getInstance();
@@ -250,17 +270,18 @@ public class MenuController {
 
         switch (userType) {
             case RECEPCION:
-                // Recepción: Gestiona clientes, reservas y consulta disponibilidad
+                // Recepcion: Gestiona clientes, reservas y consulta disponibilidad
                 tabPane.getTabs().addAll(tabClientes, tabReservas, tabConsultas);
                 break;
 
             case PERSONAL_SERVICIO:
-                // Personal de Servicio: Actualiza habitaciones y registra consumos adicionales
-                tabPane.getTabs().addAll(tabHabitaciones, tabAdicionServicios);
+                // Personal de Servicio: Actualiza habitaciones, registra consumos adicionales
+                // y puede consultar clientes (solo lectura)
+                tabPane.getTabs().addAll(tabClientes, tabHabitaciones, tabAdicionServicios);
                 break;
 
             case ADMINISTRACION:
-                // Administración: Gestiona empleados, servicios y tiene acceso a consultas
+                // Administracion: Gestiona empleados, servicios y tiene acceso a consultas
                 tabPane.getTabs().addAll(tabEmpleados, tabAsignarEmpleados, tabServicios, tabConsultas);
                 break;
 
@@ -269,6 +290,144 @@ public class MenuController {
                 tabPane.getTabs().addAll(tabClientes, tabReservas, tabServicios, tabEmpleados, 
                                         tabAsignarEmpleados, tabHabitaciones, tabAdicionServicios, tabConsultas);
                 break;
+        }
+
+        // Configurar disponibilidad de botones segun rol
+        // Por defecto: disponibilidad habilitada para Recepcion y PersonalServicio, consulta general solo para Administracion.
+        if (btnDisponibilidadHabitaciones != null) btnDisponibilidadHabitaciones.setDisable(true);
+        if (btnConsultaGeneral != null) btnConsultaGeneral.setDisable(true);
+
+        switch (userType) {
+            case RECEPCION:
+            case PERSONAL_SERVICIO:
+                if (btnDisponibilidadHabitaciones != null) btnDisponibilidadHabitaciones.setDisable(false);
+                if (btnConsultaGeneral != null) btnConsultaGeneral.setDisable(true);
+                break;
+            case ADMINISTRACION:
+                if (btnConsultaGeneral != null) btnConsultaGeneral.setDisable(false);
+                if (btnDisponibilidadHabitaciones != null) btnDisponibilidadHabitaciones.setDisable(true);
+                break;
+            case DB_ADMIN:
+                // DB_ADMIN puede ver ambas
+                if (btnDisponibilidadHabitaciones != null) btnDisponibilidadHabitaciones.setDisable(false);
+                if (btnConsultaGeneral != null) btnConsultaGeneral.setDisable(false);
+                break;
+        }
+
+        // Si es recepcion, asegurar que pueda editar contactos de clientes
+        if (userType == UserType.RECEPCION) {
+            if (btnClienteCrear != null) btnClienteCrear.setDisable(false);
+            if (btnClienteActualizar != null) btnClienteActualizar.setDisable(false);
+            if (txtClienteTelefonos != null) txtClienteTelefonos.setDisable(false);
+            if (txtClienteEmails != null) txtClienteEmails.setDisable(false);
+            if (tableClientes != null) tableClientes.setEditable(true);
+        }
+
+        // Si es personal de servicio, dejar la pestaña de clientes en solo lectura
+        if (userType == UserType.PERSONAL_SERVICIO) {
+            // Deshabilitar botones de creacion/edicion para clientes
+            if (btnClienteCrear != null) btnClienteCrear.setDisable(true);
+            if (btnClienteActualizar != null) btnClienteActualizar.setDisable(true);
+
+            // Deshabilitar campos de edicion de cliente
+            if (txtClienteCedula != null) txtClienteCedula.setDisable(true);
+            if (txtClientePrimerNombre != null) txtClientePrimerNombre.setDisable(true);
+            if (txtClienteSegundoNombre != null) txtClienteSegundoNombre.setDisable(true);
+            if (txtClientePrimerApellido != null) txtClientePrimerApellido.setDisable(true);
+            if (txtClienteSegundoApellido != null) txtClienteSegundoApellido.setDisable(true);
+            if (txtClienteCalle != null) txtClienteCalle.setDisable(true);
+            if (txtClienteCarrera != null) txtClienteCarrera.setDisable(true);
+            if (txtClienteNumero != null) txtClienteNumero.setDisable(true);
+            if (txtClienteComplemento != null) txtClienteComplemento.setDisable(true);
+            if (txtClienteTelefonos != null) txtClienteTelefonos.setDisable(true);
+            if (txtClienteEmails != null) txtClienteEmails.setDisable(true);
+
+            // Tabla de clientes no editable
+            if (tableClientes != null) {
+                tableClientes.setEditable(false);
+            }
+        }
+    }
+
+    @FXML
+    private void handleVerDisponibilidad() {
+        String sql = "SELECT h.idhabitacion AS idhabitacion, " +
+                "(c.preciocategoria * GREATEST(DATE_PART('day', r.fechasalida - r.fechallegada), 1)) AS precioestadia, " +
+                "CASE WHEN h.mantenimiento = TRUE THEN 'En mantenimiento' WHEN r.fechallegada <= CURRENT_DATE AND r.fechasalida >= CURRENT_DATE THEN 'Ocupada' ELSE 'Disponible' END AS estadoactual " +
+                "FROM habitacion h " +
+                "JOIN categoria c ON h.idcategoria = c.idcategoria " +
+                "LEFT JOIN reserva r ON h.idhabitacion = r.idhabitacion " +
+                "ORDER BY h.idhabitacion";
+        try {
+            populateTableFromQuery(sql);
+        } catch (Exception e) {
+            mostrarError("Error ejecutando consulta de disponibilidad: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleConsultaGeneral() {
+        UserSession session = UserSession.getInstance();
+        if (session.getUserType() != UserType.ADMINISTRACION && session.getUserType() != UserType.DB_ADMIN) {
+            mostrarError("Acceso denegado: consulta general solo para administracion.");
+            return;
+        }
+
+        String sql = "SELECT c.cedulacliente AS cedula, c.primerapellido AS primerapellido, c.primernombre AS primernombre, " +
+                "r.idhabitacion AS idhabitacion, r.fechallegada AS fechallegada, r.fechasalida AS fechasalida, " +
+                "COALESCE(SUM(s.precioservicio),0) AS total_consumos " +
+                "FROM cliente c " +
+                "LEFT JOIN reserva r ON c.cedulacliente = r.cedulacliente " +
+                "LEFT JOIN reserva_servicio rs ON rs.cedulacliente = c.cedulacliente AND rs.idhabitacion = r.idhabitacion AND rs.fechallegada = r.fechallegada " +
+                "LEFT JOIN servicio s ON rs.idservicio = s.idservicio " +
+                "GROUP BY c.cedulacliente, c.primerapellido, c.primernombre, r.idhabitacion, r.fechallegada, r.fechasalida " +
+                "ORDER BY total_consumos DESC";
+        try {
+            populateTableFromQuery(sql);
+        } catch (Exception e) {
+            mostrarError("Error ejecutando consulta general: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Ejecuta la query SQL y construye columnas y filas dinamicamente en `tableConsultas`.
+     */
+    private void populateTableFromQuery(String sql) throws SQLException {
+        if (tableConsultas == null) throw new SQLException("Componente tableConsultas no inicializado");
+
+        tableConsultas.getColumns().clear();
+        ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+
+        PostgreSQLConnection db = PostgreSQLConnection.getConnector();
+        try (Connection conn = db.getConn(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            ResultSetMetaData meta = rs.getMetaData();
+            int colCount = meta.getColumnCount();
+
+            // Crear columnas dinamicamente
+            for (int i = 1; i <= colCount; i++) {
+                final int colIndex = i - 1;
+                TableColumn<ObservableList<String>, String> col = new TableColumn<>(meta.getColumnLabel(i));
+                col.setCellValueFactory(cellData -> {
+                    ObservableList<String> row = cellData.getValue();
+                    String value = "";
+                    if (row != null && row.size() > colIndex && row.get(colIndex) != null) value = row.get(colIndex);
+                    return new SimpleStringProperty(value);
+                });
+                tableConsultas.getColumns().add(col);
+            }
+
+            // Llenar filas
+            while (rs.next()) {
+                ObservableList<String> row = FXCollections.observableArrayList();
+                for (int i = 1; i <= colCount; i++) {
+                    String val = rs.getString(i);
+                    row.add(val != null ? val : "");
+                }
+                data.add(row);
+            }
+
+            // Asignar datos a la tabla
+            tableConsultas.setItems(data);
         }
     }
 
@@ -302,6 +461,11 @@ public class MenuController {
                     txtClienteCarrera.setText(nuevo.getCarrera());
                     txtClienteNumero.setText(nuevo.getNumero());
                     txtClienteComplemento.setText(nuevo.getComplemento());
+                    // Rellenar telefonos y emails desde los mapas en memoria
+                    List<String> tels = telefonosPorCedulaClientes.getOrDefault(nuevo.getCedulaCliente(), new ArrayList<>());
+                    txtClienteTelefonos.setText(String.join(", ", tels));
+                    List<String> ems = emailsPorCedulaClientes.getOrDefault(nuevo.getCedulaCliente(), new ArrayList<>());
+                    txtClienteEmails.setText(String.join(", ", ems));
                 } else {
                     cedulaClienteOriginal = null;
                     txtClienteCedula.setDisable(false);
@@ -361,7 +525,13 @@ public class MenuController {
                     txtEmpleadoCarrera.setText(nuevo.getCarrera());
                     txtEmpleadoNumero.setText(nuevo.getNumero());
                     txtEmpleadoComplemento.setText(nuevo.getComplemento());
-                    txtEmpleadoIdArea.setText(nuevo.getIdArea() != null ? String.valueOf(nuevo.getIdArea()) : "");
+                    txtEmpleadoArea.setText(nuevo.getIdArea() != null ? String.valueOf(nuevo.getIdArea()) : "");
+                    txtEmpleadoCargo.setText(nuevo.getCargo() != null ? nuevo.getCargo() : "");
+                    // Rellenar telefonos y emails desde los mapas en memoria
+                    List<String> tels = telefonosPorCedulaEmpleados.getOrDefault(nuevo.getCedulaEmpleado(), new ArrayList<>());
+                    txtEmpleadoTelefonos.setText(String.join(", ", tels));
+                    List<String> ems = emailsPorCedulaEmpleados.getOrDefault(nuevo.getCedulaEmpleado(), new ArrayList<>());
+                    txtEmpleadoEmails.setText(String.join(", ", ems));
                 } else {
                     cedulaEmpleadoOriginal = null;
                     txtEmpleadoCedula.setDisable(false);
@@ -411,19 +581,20 @@ public class MenuController {
 
             switch (userType) {
                 case RECEPCION:
-                    // Recepción: Carga clientes y reservas
+                    // Recepcion: Carga clientes y reservas
                     cargarClientes();
                     cargarReservas();
                     break;
 
                 case PERSONAL_SERVICIO:
-                    // Personal de Servicio: Solo carga habitaciones y servicios
+                    // Personal de Servicio: carga habitaciones, servicios de reservaciones y clientes (solo lectura)
+                    cargarClientes();
                     cargarHabitaciones();
                     cargarReservasServicios();
                     break;
 
                 case ADMINISTRACION:
-                    // Administración: Carga empleados, servicios y datos para consultas
+                    // Administracion: Carga empleados, servicios y datos para consultas
                     cargarEmpleados();
                     cargarServicios();
                     cargarAsignaciones();
@@ -500,6 +671,11 @@ public class MenuController {
 
             if (clienteDAO.update(cliente)) {
                 mostrarInfo("Cliente actualizado exitosamente");
+                // Actualizar telefonos y emails: borrar los existentes y volver a insertar los nuevos
+                telefonoClienteDAO.deleteByCliente(cliente.getCedulaCliente());
+                emailClienteDAO.deleteByCliente(cliente.getCedulaCliente());
+                procesarTelefonosCliente(cliente.getCedulaCliente(), txtClienteTelefonos.getText());
+                procesarEmailsCliente(cliente.getCedulaCliente(), txtClienteEmails.getText());
                 limpiarCamposCliente();
                 cargarClientes();
             }
@@ -517,7 +693,7 @@ public class MenuController {
         System.out.println("Cargando clientes...");
         tableClientes.getColumns().clear();
         
-        TableColumn<Cliente, Integer> colCedula = new TableColumn<>("Cédula");
+        TableColumn<Cliente, Integer> colCedula = new TableColumn<>("Cedula");
         colCedula.setCellValueFactory(new PropertyValueFactory<>("cedulaCliente"));
         colCedula.setPrefWidth(100);
         
@@ -537,7 +713,7 @@ public class MenuController {
         colSegundoApellido.setCellValueFactory(new PropertyValueFactory<>("segundoApellido"));
         colSegundoApellido.setPrefWidth(120);
         
-        TableColumn<Cliente, String> colDireccion = new TableColumn<>("Dirección");
+        TableColumn<Cliente, String> colDireccion = new TableColumn<>("Direccion");
         colDireccion.setCellValueFactory(cellData -> {
             Cliente c = cellData.getValue();
             String direccion = c.getCalle() + " # " + c.getCarrera() + " - " + c.getNumero();
@@ -552,7 +728,7 @@ public class MenuController {
         List<Cliente> clientes = clienteDAO.findAll();
         System.out.println("Clientes encontrados: " + clientes.size());
         
-        // Cargar TODOS los teléfonos con UN SOLO findAll
+        // Cargar TODOS los telefonos con UN SOLO findAll
         java.util.Map<Integer, List<String>> telefonosPorCedula = new java.util.HashMap<>();
         try {
             List<TelefonoCliente> todosTelefonos = telefonoClienteDAO.findAll();
@@ -561,7 +737,7 @@ public class MenuController {
                     .add(tel.getTelefonoCliente());
             }
         } catch (Exception e) {
-            System.out.println("Error cargando teléfonos: " + e.getMessage());
+            System.out.println("Error cargando telefonos: " + e.getMessage());
         }
         
         // Cargar TODOS los emails con UN SOLO findAll
@@ -576,8 +752,8 @@ public class MenuController {
             System.out.println("Error cargando emails: " + e.getMessage());
         }
         
-        // Columna de teléfonos (ahora desde memoria)
-        TableColumn<Cliente, String> colTelefonos = new TableColumn<>("Teléfonos");
+        // Columna de telefonos (ahora desde memoria)
+        TableColumn<Cliente, String> colTelefonos = new TableColumn<>("Telefonos");
         colTelefonos.setCellValueFactory(cellData -> {
             Cliente c = cellData.getValue();
             List<String> telefonos = telefonosPorCedula.getOrDefault(c.getCedulaCliente(), new java.util.ArrayList<>());
@@ -603,6 +779,10 @@ public class MenuController {
             Cliente primerCliente = clientes.get(0);
             System.out.println("Primer cliente: " + primerCliente.getPrimerNombre() + " " + primerCliente.getPrimerApellido());
         }
+        // Guardar mapas para uso en listeners y evitar N+1
+        this.telefonosPorCedulaClientes = telefonosPorCedula;
+        this.emailsPorCedulaClientes = emailsPorCedula;
+
         ObservableList<Cliente> data = FXCollections.observableArrayList(clientes);
         tableClientes.setItems(data);
         System.out.println("Clientes cargados en la tabla");
@@ -625,26 +805,34 @@ public class MenuController {
     }
 
     private void procesarTelefonosCliente(Integer cedula, String telefonos) throws SQLException {
-        if (telefonos != null && !telefonos.trim().isEmpty()) {
-            String[] tels = telefonos.split(",");
-            for (String tel : tels) {
-                TelefonoCliente telefono = new TelefonoCliente();
-                telefono.setCedulaCliente(cedula);
-                telefono.setTelefonoCliente(tel.trim());
-                telefonoClienteDAO.insert(telefono);
-            }
+        if (telefonos == null || telefonos.trim().isEmpty()) return;
+        String[] parts = telefonos.split("[,;]+");
+        java.util.Set<String> dedupe = new java.util.LinkedHashSet<>();
+        for (String p : parts) {
+            String t = p == null ? "" : p.trim();
+            if (!t.isEmpty()) dedupe.add(t);
+        }
+        for (String tel : dedupe) {
+            TelefonoCliente telefono = new TelefonoCliente();
+            telefono.setCedulaCliente(cedula);
+            telefono.setTelefonoCliente(tel);
+            telefonoClienteDAO.insert(telefono);
         }
     }
 
     private void procesarEmailsCliente(Integer cedula, String emails) throws SQLException {
-        if (emails != null && !emails.trim().isEmpty()) {
-            String[] mails = emails.split(",");
-            for (String mail : mails) {
-                EmailCliente email = new EmailCliente();
-                email.setCedulaCliente(cedula);
-                email.setCorreoCliente(mail.trim());
-                emailClienteDAO.insert(email);
-            }
+        if (emails == null || emails.trim().isEmpty()) return;
+        String[] parts = emails.split("[,;]+");
+        java.util.Set<String> dedupe = new java.util.LinkedHashSet<>();
+        for (String p : parts) {
+            String m = p == null ? "" : p.trim();
+            if (!m.isEmpty()) dedupe.add(m);
+        }
+        for (String mail : dedupe) {
+            EmailCliente email = new EmailCliente();
+            email.setCedulaCliente(cedula);
+            email.setCorreoCliente(mail);
+            emailClienteDAO.insert(email);
         }
     }
 
@@ -685,14 +873,35 @@ public class MenuController {
             }
 
             Reserva reserva = new Reserva();
-            reserva.setCedulaCliente(Integer.parseInt(txtReservaCedulaCliente.getText()));
-            reserva.setFechaLlegada(parseFecha(txtReservaFechaLlegada.getText()));
-            reserva.setIdHabitacion(Integer.parseInt(txtReservaIdHabitacion.getText()));
-            if (!txtReservaCarrera.getText().isEmpty()) {
-                reserva.setFechaSalida(parseFecha(txtReservaCarrera.getText()));
+            // Si el usuario dejó campos vacíos, mantener los valores originales de la reserva seleccionada
+            Integer nuevaCedula = !txtReservaCedulaCliente.getText().isEmpty() ? Integer.parseInt(txtReservaCedulaCliente.getText()) : seleccionada.getCedulaCliente();
+            Integer nuevoIdHabitacion = !txtReservaIdHabitacion.getText().isEmpty() ? Integer.parseInt(txtReservaIdHabitacion.getText()) : seleccionada.getIdHabitacion();
+            java.time.LocalDateTime nuevaFechaLlegada = null;
+            if (txtReservaFechaLlegada != null && !txtReservaFechaLlegada.getText().trim().isEmpty()) {
+                nuevaFechaLlegada = parseFecha(txtReservaFechaLlegada.getText());
+            } else {
+                nuevaFechaLlegada = seleccionada.getFechaLlegada();
             }
 
-            if (reservaDAO.update(reserva)) {
+            java.time.LocalDateTime nuevaFechaSalida = null;
+            if (txtReservaCarrera != null && !txtReservaCarrera.getText().trim().isEmpty()) {
+                nuevaFechaSalida = parseFecha(txtReservaCarrera.getText());
+            } else {
+                nuevaFechaSalida = seleccionada.getFechaSalida();
+            }
+
+            reserva.setCedulaCliente(nuevaCedula);
+            reserva.setIdHabitacion(nuevoIdHabitacion);
+            reserva.setFechaLlegada(nuevaFechaLlegada);
+            reserva.setFechaSalida(nuevaFechaSalida);
+
+            // Usar la reserva seleccionada para obtener las claves originales
+            Integer origCedula = seleccionada.getCedulaCliente();
+            Integer origIdHabitacion = seleccionada.getIdHabitacion();
+            java.time.LocalDateTime origFechaLlegada = seleccionada.getFechaLlegada();
+
+            // Llamar a la sobrecarga que acepta las claves originales
+            if (reservaDAO.update(reserva, origCedula, origIdHabitacion, origFechaLlegada)) {
                 mostrarInfo("Reserva actualizada exitosamente");
                 limpiarCamposReserva();
                 cargarReservas();
@@ -733,11 +942,11 @@ public class MenuController {
         System.out.println("Cargando reservas...");
         tableReservas.getColumns().clear();
         
-        TableColumn<Reserva, Integer> colCedulaCliente = new TableColumn<>("Cédula Cliente");
+        TableColumn<Reserva, Integer> colCedulaCliente = new TableColumn<>("Cedula Cliente");
         colCedulaCliente.setCellValueFactory(new PropertyValueFactory<>("cedulaCliente"));
         colCedulaCliente.setPrefWidth(120);
         
-        TableColumn<Reserva, Integer> colIdHabitacion = new TableColumn<>("ID Habitación");
+        TableColumn<Reserva, Integer> colIdHabitacion = new TableColumn<>("ID Habitacion");
         colIdHabitacion.setCellValueFactory(new PropertyValueFactory<>("idHabitacion"));
         colIdHabitacion.setPrefWidth(120);
         
@@ -759,7 +968,7 @@ public class MenuController {
         if (!reservas.isEmpty()) {
             Reserva primeraReserva = reservas.get(0);
             System.out.println("Primera reserva - Cliente: " + primeraReserva.getCedulaCliente() + 
-                             ", Habitación: " + primeraReserva.getIdHabitacion());
+                             ", Habitacion: " + primeraReserva.getIdHabitacion());
         }
         ObservableList<Reserva> data = FXCollections.observableArrayList(reservas);
         tableReservas.setItems(data);
@@ -786,8 +995,11 @@ public class MenuController {
             empleado.setCarrera(txtEmpleadoCarrera.getText());
             empleado.setNumero(txtEmpleadoNumero.getText());
             empleado.setComplemento(nullIfBlank(txtEmpleadoComplemento.getText()));
-            empleado.setCargo("");
-            empleado.setIdArea(Integer.parseInt(txtEmpleadoIdArea.getText()));
+            // cargo from new cargo textfield
+            empleado.setCargo(nullIfBlank(txtEmpleadoCargo.getText()));
+            // idArea from single area field
+            String areaVal = (txtEmpleadoArea != null && !txtEmpleadoArea.getText().isEmpty()) ? txtEmpleadoArea.getText() : null;
+            empleado.setIdArea(areaVal != null && !areaVal.isEmpty() ? Integer.parseInt(areaVal) : null);
 
             if (empleadoDAO.insert(empleado)) {
                 mostrarInfo("Empleado creado exitosamente");
@@ -827,11 +1039,18 @@ public class MenuController {
             empleado.setCarrera(txtEmpleadoCarrera.getText());
             empleado.setNumero(txtEmpleadoNumero.getText());
             empleado.setComplemento(nullIfBlank(txtEmpleadoComplemento.getText()));
-            empleado.setCargo("");
-            empleado.setIdArea(Integer.parseInt(txtEmpleadoIdArea.getText()));
+            empleado.setCargo(nullIfBlank(txtEmpleadoCargo.getText()));
+            String areaValUp = (txtEmpleadoArea != null && !txtEmpleadoArea.getText().isEmpty()) ? txtEmpleadoArea.getText() : null;
+            empleado.setIdArea(areaValUp != null && !areaValUp.isEmpty() ? Integer.parseInt(areaValUp) : null);
 
             if (empleadoDAO.update(empleado)) {
                 mostrarInfo("Empleado actualizado exitosamente");
+                // Al actualizar, recargar telefonos y emails completos
+                telefonoEmpleadoDAO.deleteByEmpleado(empleado.getCedulaEmpleado());
+                emailEmpleadoDAO.deleteByEmpleado(empleado.getCedulaEmpleado());
+                procesarTelefonosEmpleado(empleado.getCedulaEmpleado(), txtEmpleadoTelefonos.getText());
+                procesarEmailsEmpleado(empleado.getCedulaEmpleado(), txtEmpleadoEmails.getText());
+                // Limpiar campos una vez insertados los contactos y recargar tabla
                 limpiarCamposEmpleado();
                 cargarEmpleados();
             }
@@ -863,7 +1082,7 @@ public class MenuController {
         if (tableEmpleados == null) return;
         tableEmpleados.getColumns().clear();
         
-        TableColumn<Empleado, Integer> colCedula = new TableColumn<>("Cédula");
+        TableColumn<Empleado, Integer> colCedula = new TableColumn<>("Cedula");
         colCedula.setCellValueFactory(new PropertyValueFactory<>("cedulaEmpleado"));
         colCedula.setPrefWidth(100);
         
@@ -879,11 +1098,11 @@ public class MenuController {
         colCargo.setCellValueFactory(new PropertyValueFactory<>("cargo"));
         colCargo.setPrefWidth(120);
         
-        TableColumn<Empleado, Integer> colIdArea = new TableColumn<>("ID Área");
+        TableColumn<Empleado, Integer> colIdArea = new TableColumn<>("Id area");
         colIdArea.setCellValueFactory(new PropertyValueFactory<>("idArea"));
         colIdArea.setPrefWidth(80);
         
-        TableColumn<Empleado, String> colDireccion = new TableColumn<>("Dirección");
+        TableColumn<Empleado, String> colDireccion = new TableColumn<>("Direccion");
         colDireccion.setCellValueFactory(cellData -> {
             Empleado e = cellData.getValue();
             String direccion = "Calle " + e.getCalle() + " # " + e.getCarrera() + " - " + e.getNumero();
@@ -897,7 +1116,55 @@ public class MenuController {
         tableEmpleados.getColumns().addAll(colCedula, colPrimerNombre, colPrimerApellido, 
                                           colCargo, colIdArea, colDireccion);
         
+        // Cargar todos los empleados
         List<Empleado> empleados = empleadoDAO.findAll();
+
+        // Cargar telefonos y emails de empleados con un solo findAll cada uno
+        java.util.Map<Integer, List<String>> telefonosPorCedula = new java.util.HashMap<>();
+        try {
+            List<TelefonoEmpleado> todosTels = telefonoEmpleadoDAO.findAll();
+            for (TelefonoEmpleado t : todosTels) {
+                telefonosPorCedula.computeIfAbsent(t.getCedulaEmpleado(), k -> new ArrayList<>()).add(t.getTelefonoEmpleado());
+            }
+        } catch (Exception e) {
+            System.out.println("Error cargando telefonos empleados: " + e.getMessage());
+        }
+
+        java.util.Map<Integer, List<String>> emailsPorCedula = new java.util.HashMap<>();
+        try {
+            List<EmailEmpleado> todosEmails = emailEmpleadoDAO.findAll();
+            for (EmailEmpleado em : todosEmails) {
+                emailsPorCedula.computeIfAbsent(em.getCedulaEmpleado(), k -> new ArrayList<>()).add(em.getCorreoEmpleado());
+            }
+        } catch (Exception e) {
+            System.out.println("Error cargando emails empleados: " + e.getMessage());
+        }
+
+        // Guardar mapas en campos de la clase para uso en listeners
+        this.telefonosPorCedulaEmpleados = telefonosPorCedula;
+        this.emailsPorCedulaEmpleados = emailsPorCedula;
+
+        // Columnas de telefonos/emails
+        TableColumn<Empleado, String> colTelefonos = new TableColumn<>("Telefonos");
+        colTelefonos.setCellValueFactory(cellData -> {
+            Empleado emp = cellData.getValue();
+            List<String> tels = telefonosPorCedula.getOrDefault(emp.getCedulaEmpleado(), new ArrayList<>());
+            String val = String.join(", ", tels);
+            return new SimpleStringProperty(val.isEmpty() ? "N/A" : val);
+        });
+        colTelefonos.setPrefWidth(150);
+
+        TableColumn<Empleado, String> colEmailsEmp = new TableColumn<>("Emails");
+        colEmailsEmp.setCellValueFactory(cellData -> {
+            Empleado emp = cellData.getValue();
+            List<String> ems = emailsPorCedula.getOrDefault(emp.getCedulaEmpleado(), new ArrayList<>());
+            String val = String.join(", ", ems);
+            return new SimpleStringProperty(val.isEmpty() ? "N/A" : val);
+        });
+        colEmailsEmp.setPrefWidth(200);
+
+        tableEmpleados.getColumns().addAll(colTelefonos, colEmailsEmp);
+
         ObservableList<Empleado> data = FXCollections.observableArrayList(empleados);
         tableEmpleados.setItems(data);
     }
@@ -914,32 +1181,41 @@ public class MenuController {
         txtEmpleadoCarrera.clear();
         txtEmpleadoNumero.clear();
         txtEmpleadoComplemento.clear();
-        txtEmpleadoIdArea.clear();
+        txtEmpleadoArea.clear();
+        txtEmpleadoCargo.clear();
         txtEmpleadoTelefonos.clear();
         txtEmpleadoEmails.clear();
     }
 
     private void procesarTelefonosEmpleado(Integer cedula, String telefonos) throws SQLException {
-        if (telefonos != null && !telefonos.trim().isEmpty()) {
-            String[] tels = telefonos.split(",");
-            for (String tel : tels) {
-                TelefonoEmpleado telefono = new TelefonoEmpleado();
-                telefono.setCedulaEmpleado(cedula);
-                telefono.setTelefonoEmpleado(tel.trim());
-                telefonoEmpleadoDAO.insert(telefono);
-            }
+        if (telefonos == null || telefonos.trim().isEmpty()) return;
+        String[] parts = telefonos.split("[,;]+");
+        java.util.Set<String> dedupe = new java.util.LinkedHashSet<>();
+        for (String p : parts) {
+            String t = p == null ? "" : p.trim();
+            if (!t.isEmpty()) dedupe.add(t);
+        }
+        for (String tel : dedupe) {
+            TelefonoEmpleado telefono = new TelefonoEmpleado();
+            telefono.setCedulaEmpleado(cedula);
+            telefono.setTelefonoEmpleado(tel);
+            telefonoEmpleadoDAO.insert(telefono);
         }
     }
 
     private void procesarEmailsEmpleado(Integer cedula, String emails) throws SQLException {
-        if (emails != null && !emails.trim().isEmpty()) {
-            String[] mails = emails.split(",");
-            for (String mail : mails) {
-                EmailEmpleado email = new EmailEmpleado();
-                email.setCedulaEmpleado(cedula);
-                email.setCorreoEmpleado(mail.trim());
-                emailEmpleadoDAO.insert(email);
-            }
+        if (emails == null || emails.trim().isEmpty()) return;
+        String[] parts = emails.split("[,;]+");
+        java.util.Set<String> dedupe = new java.util.LinkedHashSet<>();
+        for (String p : parts) {
+            String m = p == null ? "" : p.trim();
+            if (!m.isEmpty()) dedupe.add(m);
+        }
+        for (String mail : dedupe) {
+            EmailEmpleado email = new EmailEmpleado();
+            email.setCedulaEmpleado(cedula);
+            email.setCorreoEmpleado(mail);
+            emailEmpleadoDAO.insert(email);
         }
     }
 
@@ -949,7 +1225,7 @@ public class MenuController {
             Atiende atiende = new Atiende();
             atiende.setCedulaCliente(Integer.parseInt(txtAsignarCedulaCliente.getText()));
             atiende.setIdHabitacion(Integer.parseInt(txtAsignarIdHabitacion.getText()));
-            atiende.setFechaLlegada(java.time.LocalDateTime.parse(txtAsignarFechaLlegada.getText() + "T00:00:00"));
+            atiende.setFechaLlegada(parseFecha(txtAsignarFechaLlegada.getText()));
             atiende.setCedulaEmpleado(Integer.parseInt(txtAsignarCedulaEmpleado.getText()));
             atiende.setIdServicio(Integer.parseInt(txtAsignarIdServicio.getText()));
             atiende.setFechaUso(java.time.LocalDateTime.now());
@@ -969,8 +1245,7 @@ public class MenuController {
         try {
             Integer cedulaCliente = Integer.parseInt(txtAsignarCedulaCliente.getText());
             Integer cedulaEmpleado = Integer.parseInt(txtAsignarCedulaEmpleado.getText());
-            java.time.LocalDateTime fechaLlegada = java.time.LocalDateTime
-                    .parse(txtAsignarFechaLlegada.getText() + "T00:00:00");
+                java.time.LocalDateTime fechaLlegada = parseFecha(txtAsignarFechaLlegada.getText());
             java.time.LocalDateTime fechaUso = java.time.LocalDateTime.now();
             Integer idHabitacion = Integer.parseInt(txtAsignarIdHabitacion.getText());
             Integer idServicio = Integer.parseInt(txtAsignarIdServicio.getText());
@@ -988,32 +1263,43 @@ public class MenuController {
     private void cargarAsignaciones() throws SQLException {
         if (tableAsignaciones == null) return;
         tableAsignaciones.getColumns().clear();
-        
-        TableColumn<Atiende, Integer> colCedulaCliente = new TableColumn<>("Cédula Cliente");
+
+        TableColumn<Atiende, Integer> colCedulaCliente = new TableColumn<>("Cedula Cliente");
         colCedulaCliente.setCellValueFactory(new PropertyValueFactory<>("cedulaCliente"));
         colCedulaCliente.setPrefWidth(120);
-        
-        TableColumn<Atiende, Integer> colCedulaEmpleado = new TableColumn<>("Cédula Empleado");
+
+        TableColumn<Atiende, Integer> colCedulaEmpleado = new TableColumn<>("Cedula Empleado");
         colCedulaEmpleado.setCellValueFactory(new PropertyValueFactory<>("cedulaEmpleado"));
         colCedulaEmpleado.setPrefWidth(140);
-        
-        TableColumn<Atiende, Integer> colIdHabitacion = new TableColumn<>("ID Habitación");
+
+        TableColumn<Atiende, Integer> colIdHabitacion = new TableColumn<>("Id Habitacion");
         colIdHabitacion.setCellValueFactory(new PropertyValueFactory<>("idHabitacion"));
         colIdHabitacion.setPrefWidth(120);
-        
-        TableColumn<Atiende, Integer> colIdServicio = new TableColumn<>("ID Servicio");
+
+        TableColumn<Atiende, Integer> colIdServicio = new TableColumn<>("Id Servicio");
         colIdServicio.setCellValueFactory(new PropertyValueFactory<>("idServicio"));
         colIdServicio.setPrefWidth(100);
-        
+
+        TableColumn<Atiende, String> colFechaLlegada = new TableColumn<>("Fecha Llegada");
+        colFechaLlegada.setCellValueFactory(cellData -> {
+            java.time.LocalDateTime dt = cellData.getValue() != null ? cellData.getValue().getFechaLlegada() : null;
+            if (dt == null) return new SimpleStringProperty("");
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
+            return new SimpleStringProperty(dt.toLocalDate().format(fmt));
+        });
+        colFechaLlegada.setPrefWidth(180);
+
         TableColumn<Atiende, LocalDateTime> colFechaUso = new TableColumn<>("Fecha Uso");
         colFechaUso.setCellValueFactory(new PropertyValueFactory<>("fechaUso"));
         colFechaUso.setPrefWidth(180);
-        
-        tableAsignaciones.getColumns().addAll(colCedulaCliente, colCedulaEmpleado, 
-                                             colIdHabitacion, colIdServicio, colFechaUso);
-        
-        // Mensaje inicial
-        tableAsignaciones.setPlaceholder(new Label("Ingrese datos de reserva para ver asignaciones"));
+
+        tableAsignaciones.getColumns().addAll(colCedulaCliente, colCedulaEmpleado,
+            colIdHabitacion, colIdServicio, colFechaLlegada, colFechaUso);
+
+        // Cargar todas las asignaciones
+        List<Atiende> asignaciones = atiendeDAO.findAll();
+        ObservableList<Atiende> data = FXCollections.observableArrayList(asignaciones);
+        tableAsignaciones.setItems(data);
     }
 
     private void limpiarCamposAsignar() {
@@ -1028,18 +1314,35 @@ public class MenuController {
     private void handleLiberarHabitacion() {
         try {
             Integer idHabitacion = Integer.parseInt(txtHabitacionId.getText());
+            // Verificar estado actual
+            String estado = getEstadoHabitacion(idHabitacion);
+            UserSession session = UserSession.getInstance();
+            UserType userType = session.getUserType();
+
+            if (userType == UserType.PERSONAL_SERVICIO) {
+                // personal_servicio solo puede liberar habitaciones que esten "Ocupada"
+                if (!"Ocupada".equalsIgnoreCase(estado)) {
+                    mostrarError("Solo puede liberar habitaciones que esten en estado 'Ocupada'. Estado actual: " + estado);
+                    return;
+                }
+            }
 
             Habitacion habitacion = habitacionDAO.findById(idHabitacion);
             if (habitacion != null) {
-                habitacion.setMantenimiento(false);
+                // Cuando el personal de servicio libera una habitacion ocupada, debe ponerse en mantenimiento
+                if (userType == UserType.PERSONAL_SERVICIO) {
+                    habitacion.setMantenimiento(true);
+                } else {
+                    habitacion.setMantenimiento(false);
+                }
                 if (habitacionDAO.update(habitacion)) {
-                    mostrarInfo("Habitación liberada exitosamente");
+                    mostrarInfo("Habitacion liberada exitosamente");
                     txtHabitacionId.clear();
                     cargarHabitaciones();
                 }
             }
         } catch (Exception e) {
-            mostrarError("Error al liberar habitación: " + e.getMessage());
+            mostrarError("Error al liberar habitacion: " + e.getMessage());
         }
     }
 
@@ -1047,6 +1350,12 @@ public class MenuController {
     private void handleTerminarMantenimiento() {
         try {
             Integer idHabitacion = Integer.parseInt(txtHabitacionId.getText());
+            // Verificar estado actual
+            String estado = getEstadoHabitacion(idHabitacion);
+            if (!"En mantenimiento".equalsIgnoreCase(estado)) {
+                mostrarError("Solo se puede terminar mantenimiento a habitaciones que esten en 'En mantenimiento'. Estado actual: " + estado);
+                return;
+            }
 
             Habitacion habitacion = habitacionDAO.findById(idHabitacion);
             if (habitacion != null) {
@@ -1065,31 +1374,73 @@ public class MenuController {
     private void cargarHabitaciones() throws SQLException {
         if (tableHabitaciones == null) return;
         tableHabitaciones.getColumns().clear();
-        
-        TableColumn<Habitacion, Integer> colId = new TableColumn<>("ID Habitación");
-        colId.setCellValueFactory(new PropertyValueFactory<>("idHabitacion"));
-        colId.setPrefWidth(120);
-        
-        TableColumn<Habitacion, Integer> colCategoria = new TableColumn<>("ID Categoría");
-        colCategoria.setCellValueFactory(new PropertyValueFactory<>("idCategoria"));
-        colCategoria.setPrefWidth(120);
-        
-        TableColumn<Habitacion, Boolean> colMantenimiento = new TableColumn<>("Mantenimiento");
-        colMantenimiento.setCellValueFactory(new PropertyValueFactory<>("mantenimiento"));
-        colMantenimiento.setPrefWidth(120);
-        
-        TableColumn<Habitacion, String> colEstado = new TableColumn<>("Estado");
-        colEstado.setCellValueFactory(cellData -> {
-            String estado = cellData.getValue().getMantenimiento() ? "En Mantenimiento" : "Disponible";
-            return new SimpleStringProperty(estado);
-        });
-        colEstado.setPrefWidth(150);
-        
-        tableHabitaciones.getColumns().addAll(colId, colCategoria, colMantenimiento, colEstado);
-        
-        List<Habitacion> habitaciones = habitacionDAO.findAll();
-        ObservableList<Habitacion> data = FXCollections.observableArrayList(habitaciones);
-        tableHabitaciones.setItems(data);
+
+        // Usar la consulta solicitada para mostrar idHabitacion, precioEstadia y estadoActual
+        String sql = "SELECT h.idhabitacion AS idhabitacion, " +
+                "(c.preciocategoria * GREATEST(DATE_PART('day', r.fechasalida - r.fechallegada), 1)) AS precioestadia, " +
+                "CASE WHEN h.mantenimiento = TRUE THEN 'En mantenimiento' WHEN r.fechallegada <= CURRENT_DATE AND r.fechasalida >= CURRENT_DATE THEN 'Ocupada' ELSE 'Disponible' END AS estadoactual " +
+                "FROM habitacion h " +
+                "JOIN categoria c ON h.idcategoria = c.idcategoria " +
+                "LEFT JOIN reserva r ON h.idhabitacion = r.idhabitacion " +
+                "ORDER BY h.idhabitacion";
+
+        // Ejecutar la consulta y poblar la tabla dinamicamente
+        tableHabitaciones.getColumns().clear();
+        ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+
+        PostgreSQLConnection db = PostgreSQLConnection.getConnector();
+        try (Connection conn = db.getConn(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            ResultSetMetaData meta = rs.getMetaData();
+            int colCount = meta.getColumnCount();
+
+            for (int i = 1; i <= colCount; i++) {
+                final int colIndex = i - 1;
+                TableColumn<ObservableList<String>, String> col = new TableColumn<>(meta.getColumnLabel(i));
+                col.setCellValueFactory(cellData -> {
+                    ObservableList<String> row = cellData.getValue();
+                    String value = "";
+                    if (row != null && row.size() > colIndex && row.get(colIndex) != null) value = row.get(colIndex);
+                    return new SimpleStringProperty(value);
+                });
+                tableHabitaciones.getColumns().add(col);
+            }
+
+            while (rs.next()) {
+                ObservableList<String> row = FXCollections.observableArrayList();
+                for (int i = 1; i <= colCount; i++) {
+                    String val = rs.getString(i);
+                    row.add(val != null ? val : "");
+                }
+                data.add(row);
+            }
+            tableHabitaciones.setItems(data);
+        }
+    }
+
+    /**
+     * Devuelve el estado actual ("En mantenimiento", "Ocupada" o "Disponible") para una habitacion.
+     */
+    private String getEstadoHabitacion(Integer idHabitacion) {
+        String sql = "SELECT h.mantenimiento, EXISTS(SELECT 1 FROM reserva r WHERE r.idhabitacion = h.idhabitacion AND r.fechallegada <= CURRENT_DATE AND r.fechasalida >= CURRENT_DATE) AS ocupada " +
+                "FROM habitacion h WHERE h.idhabitacion = ?";
+        try {
+            PostgreSQLConnection db = PostgreSQLConnection.getConnector();
+            try (Connection conn = db.getConn(); PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setObject(1, idHabitacion);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        boolean mantenimiento = rs.getBoolean("mantenimiento");
+                        boolean ocupada = rs.getBoolean("ocupada");
+                        if (mantenimiento) return "En mantenimiento";
+                        if (ocupada) return "Ocupada";
+                        return "Disponible";
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error al obtener estado de habitacion: " + e.getMessage());
+        }
+        return "Desconocido";
     }
 
     private void cargarServicios() throws SQLException {
@@ -1193,7 +1544,7 @@ public class MenuController {
             ReservaServicio reservaServicio = new ReservaServicio();
             reservaServicio.setCedulaCliente(Integer.parseInt(txtServicioCedulaCliente.getText()));
             reservaServicio.setIdHabitacion(Integer.parseInt(txtServicioIdHabitacion.getText()));
-            reservaServicio.setFechaLlegada(LocalDateTime.parse(txtServicioFechaLlegada.getText()));
+            reservaServicio.setFechaLlegada(parseFecha(txtServicioFechaLlegada.getText()));
             reservaServicio.setIdServicio(Integer.parseInt(txtServicioIdServicio.getText()));
             reservaServicio.setFechaUso(LocalDateTime.now());
 
@@ -1210,32 +1561,60 @@ public class MenuController {
     private void cargarReservasServicios() throws SQLException {
         if (tableServiciosReservaciones == null) return;
         tableServiciosReservaciones.getColumns().clear();
-        
-        TableColumn<ReservaServicio, Integer> colCedulaCliente = new TableColumn<>("Cédula Cliente");
+
+        TableColumn<ReservaServicio, Integer> colCedulaCliente = new TableColumn<>("Cedula Cliente");
         colCedulaCliente.setCellValueFactory(new PropertyValueFactory<>("cedulaCliente"));
         colCedulaCliente.setPrefWidth(120);
-        
-        TableColumn<ReservaServicio, Integer> colIdHabitacion = new TableColumn<>("ID Habitación");
-        colIdHabitacion.setCellValueFactory(new PropertyValueFactory<>("idHabitacion"));
+
+        TableColumn<ReservaServicio, Integer> colIdHabitacion = new TableColumn<>("Id Habitacion");
+        colIdHabitacion.setCellValueFactory(new PropertyValueFactory<>("IdHabitacion"));
         colIdHabitacion.setPrefWidth(120);
-        
+
         TableColumn<ReservaServicio, Integer> colIdServicio = new TableColumn<>("ID Servicio");
         colIdServicio.setCellValueFactory(new PropertyValueFactory<>("idServicio"));
         colIdServicio.setPrefWidth(100);
-        
+
         TableColumn<ReservaServicio, LocalDateTime> colFechaLlegada = new TableColumn<>("Fecha Llegada");
         colFechaLlegada.setCellValueFactory(new PropertyValueFactory<>("fechaLlegada"));
         colFechaLlegada.setPrefWidth(180);
-        
+
         TableColumn<ReservaServicio, LocalDateTime> colFechaUso = new TableColumn<>("Fecha Uso");
         colFechaUso.setCellValueFactory(new PropertyValueFactory<>("fechaUso"));
         colFechaUso.setPrefWidth(180);
-        
-        tableServiciosReservaciones.getColumns().addAll(colCedulaCliente, colIdHabitacion, 
-                                                        colIdServicio, colFechaLlegada, colFechaUso);
-        
-        // Mensaje inicial
-        tableServiciosReservaciones.setPlaceholder(new Label("Añada servicios para ver la lista"));
+
+        tableServiciosReservaciones.getColumns().addAll(colCedulaCliente, colIdHabitacion,
+            colIdServicio, colFechaLlegada, colFechaUso);
+
+        List<ReservaServicio> lista = reservaServicioDAO.findAll();
+        ObservableList<ReservaServicio> data = FXCollections.observableArrayList(lista);
+        tableServiciosReservaciones.setItems(data);
+
+        // Tambien cargar la lista de servicios disponibles en la tabla inferior
+        if (tableServiciosLista != null) {
+            tableServiciosLista.getColumns().clear();
+
+            TableColumn<Servicio, Integer> colId = new TableColumn<>("ID Servicio");
+            colId.setCellValueFactory(new PropertyValueFactory<>("idServicio"));
+            colId.setPrefWidth(100);
+
+            TableColumn<Servicio, String> colNombre = new TableColumn<>("Nombre");
+            colNombre.setCellValueFactory(new PropertyValueFactory<>("nombreServicio"));
+            colNombre.setPrefWidth(200);
+
+            TableColumn<Servicio, String> colDetalle = new TableColumn<>("Detalle");
+            colDetalle.setCellValueFactory(new PropertyValueFactory<>("detalleServicio"));
+            colDetalle.setPrefWidth(250);
+
+            TableColumn<Servicio, BigDecimal> colPrecio = new TableColumn<>("Precio");
+            colPrecio.setCellValueFactory(new PropertyValueFactory<>("precioServicio"));
+            colPrecio.setPrefWidth(120);
+
+            tableServiciosLista.getColumns().addAll(colId, colNombre, colDetalle, colPrecio);
+
+            List<Servicio> servicios = servicioDAO.findAll();
+            ObservableList<Servicio> serviciosData = FXCollections.observableArrayList(servicios);
+            tableServiciosLista.setItems(serviciosData);
+        }
     }
 
     private void limpiarCamposServicio() {
@@ -1261,9 +1640,33 @@ public class MenuController {
     }
 
     private LocalDateTime parseFecha(String fecha) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        LocalDate date = LocalDate.parse(fecha, formatter);
-        return date.atStartOfDay();
+        if (fecha == null || fecha.trim().isEmpty()) return null;
+        String f = fecha.trim();
+        // Try two-digit year first (dd/MM/yy), then four-digit year (dd/MM/yyyy), then ISO LocalDate/LocalDateTime
+        DateTimeFormatter fmt2 = DateTimeFormatter.ofPattern("dd/MM/yy");
+        DateTimeFormatter fmt4 = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        try {
+            LocalDate d = LocalDate.parse(f, fmt2);
+            return d.atStartOfDay();
+        } catch (Exception e) {
+            try {
+                LocalDate d = LocalDate.parse(f, fmt4);
+                return d.atStartOfDay();
+            } catch (Exception e2) {
+                try {
+                    // If the user provided an ISO date or datetime, accept it and normalize to start of day
+                    LocalDate ld = LocalDate.parse(f);
+                    return ld.atStartOfDay();
+                } catch (Exception e3) {
+                    try {
+                        LocalDateTime ldt = LocalDateTime.parse(f);
+                        return ldt.withHour(0).withMinute(0).withSecond(0).withNano(0);
+                    } catch (Exception e4) {
+                        throw new IllegalArgumentException("Formato de fecha invalido (use DD/MM/AA o DD/MM/AAAA): " + fecha);
+                    }
+                }
+            }
+        }
     }
 
     private boolean camposClienteLlenos() {
@@ -1288,7 +1691,7 @@ public class MenuController {
                 && !txtEmpleadoCalle.getText().isEmpty()
                 && !txtEmpleadoCarrera.getText().isEmpty()
                 && !txtEmpleadoNumero.getText().isEmpty()
-                && !txtEmpleadoIdArea.getText().isEmpty();
+                && !txtEmpleadoArea.getText().isEmpty();
     }
 
     private boolean camposServicioLlenos() {
@@ -1310,7 +1713,7 @@ public class MenuController {
 
     private void mostrarInfo(String mensaje) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Información");
+        alert.setTitle("Informacion");
         alert.setHeaderText(null);
         alert.setContentText(mensaje);
         alert.showAndWait();

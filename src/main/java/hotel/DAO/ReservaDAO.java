@@ -28,12 +28,35 @@ public class ReservaDAO {
     }
 
     public boolean update(Reserva reserva) throws SQLException {
+        // Mantener compatibilidad: actualiza solo la fechaSalida usando las claves actuales
         final String sql = "UPDATE public.reserva SET fechasalida = ? WHERE cedulacliente = ? AND idhabitacion = ? AND fechallegada = ?";
         try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setObject(1, reserva.getFechaSalida());
             ps.setObject(2, reserva.getCedulaCliente());
             ps.setObject(3, reserva.getIdHabitacion());
             ps.setObject(4, reserva.getFechaLlegada());
+            ps.executeUpdate();
+        }
+        return true;
+    }
+
+    /**
+     * Actualiza una reserva permitiendo cambiar las columnas que forman la clave primaria.
+     * Usa los valores originales (orig...) en la cláusula WHERE para localizar la fila.
+     */
+    public boolean update(Reserva reserva, Integer origCedulaCliente, Integer origIdHabitacion, LocalDateTime origFechaLlegada) throws SQLException {
+        final String sql = "UPDATE public.reserva SET cedulacliente = ?, idhabitacion = ?, fechallegada = ?, fechasalida = ? " +
+                           "WHERE cedulacliente = ? AND idhabitacion = ? AND fechallegada = ?";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, reserva.getCedulaCliente());
+            ps.setObject(2, reserva.getIdHabitacion());
+            ps.setObject(3, reserva.getFechaLlegada());
+            ps.setObject(4, reserva.getFechaSalida());
+
+            ps.setObject(5, origCedulaCliente);
+            ps.setObject(6, origIdHabitacion);
+            ps.setObject(7, origFechaLlegada);
+
             ps.executeUpdate();
         }
         return true;

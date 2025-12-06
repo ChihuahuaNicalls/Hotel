@@ -45,4 +45,24 @@ public class TelefonoEmpleadoDAO {
             }
         }
     }
+
+    public List<TelefonoEmpleado> findAll() throws SQLException {
+        final String sql = "SELECT * FROM public.telefonoempleado";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            List<TelefonoEmpleado> lista = new ArrayList<>();
+            while (rs.next()) {
+                lista.add(new TelefonoEmpleado(rs.getObject("cedulaempleado", Integer.class), rs.getString("telefonoempleado")));
+            }
+            return lista;
+        }
+    }
+
+    public boolean deleteByEmpleado(Integer cedulaEmpleado) throws SQLException {
+        final String sql = "DELETE FROM public.telefonoempleado WHERE cedulaempleado = ?";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, cedulaEmpleado);
+            ps.executeUpdate();
+        }
+        return true;
+    }
 }

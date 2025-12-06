@@ -34,6 +34,15 @@ public class TelefonoClienteDAO {
         return true;
     }
 
+    public boolean deleteByCliente(Integer cedulaCliente) throws SQLException {
+        final String sql = "DELETE FROM public.telefonocliente WHERE cedulacliente = ?";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, cedulaCliente);
+            ps.executeUpdate();
+        }
+        return true;
+    }
+
     public List<TelefonoCliente> findByCliente(Integer cedulaCliente) throws SQLException {
         final String sql = "SELECT * FROM public.telefonocliente WHERE cedulacliente = ?";
         try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql)) {

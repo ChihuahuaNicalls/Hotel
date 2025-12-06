@@ -45,4 +45,24 @@ public class EmailEmpleadoDAO {
             }
         }
     }
+
+    public List<EmailEmpleado> findAll() throws SQLException {
+        final String sql = "SELECT * FROM public.emailempleado";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            List<EmailEmpleado> lista = new ArrayList<>();
+            while (rs.next()) {
+                lista.add(new EmailEmpleado(rs.getObject("cedulaempleado", Integer.class), rs.getString("correoempleado")));
+            }
+            return lista;
+        }
+    }
+
+    public boolean deleteByEmpleado(Integer cedulaEmpleado) throws SQLException {
+        final String sql = "DELETE FROM public.emailempleado WHERE cedulaempleado = ?";
+        try (Connection c = db.getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, cedulaEmpleado);
+            ps.executeUpdate();
+        }
+        return true;
+    }
 }

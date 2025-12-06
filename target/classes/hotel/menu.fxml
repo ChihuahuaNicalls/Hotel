@@ -116,6 +116,10 @@
                             <TextField fx:id="txtEmpleadoSegundoNombre" promptText="Opcional" prefWidth="150" />
                         </HBox>
                         <HBox spacing="10">
+                            <Label text="Área (ID):" />
+                            <TextField fx:id="txtEmpleadoArea" promptText="ID Área" prefWidth="100" />
+                        </HBox>
+                        <HBox spacing="10">
                             <Label text="Primer Apellido:" />
                             <TextField fx:id="txtEmpleadoPrimerApellido" promptText="Ingrese apellido" prefWidth="150" />
                             <Label text="Segundo Apellido:" />
@@ -132,8 +136,8 @@
                         <HBox spacing="10">
                             <Label text="Complemento:" />
                             <TextField fx:id="txtEmpleadoComplemento" promptText="Apto, Piso, etc." prefWidth="150" />
-                            <Label text="ID Área:" />
-                            <TextField fx:id="txtEmpleadoIdArea" promptText="Ingrese ID área" prefWidth="100" />
+                            <Label text="Cargo:" />
+                            <TextField fx:id="txtEmpleadoCargo" promptText="Cargo (ej. Recepción)" prefWidth="140" />
                             <Label text="Teléfonos:" />
                             <TextField fx:id="txtEmpleadoTelefonos" promptText="Separados por comas" prefWidth="150" />
                         </HBox>
@@ -200,7 +204,7 @@
                             <Label text="ID Habitación:" />
                             <TextField fx:id="txtServicioIdHabitacion" promptText="Ingrese ID" prefWidth="100" />
                             <Label text="Fecha Llegada:" />
-                            <TextField fx:id="txtServicioFechaLlegada" promptText="YYYY-MM-DDTHH:MM:SS" prefWidth="180" />
+                            <TextField fx:id="txtServicioFechaLlegada" promptText="DD/MM/AA" prefWidth="180" />
                         </HBox>
                         <HBox spacing="10">
                             <Label text="ID Servicio:" />
@@ -209,6 +213,8 @@
                         </HBox>
                         <Label text="Servicios de Reservaciones:" style="-fx-font-weight: bold;" />
                         <TableView fx:id="tableServiciosReservaciones" prefHeight="300" />
+                        <Label text="Servicios Disponibles:" style="-fx-font-weight: bold;" />
+                        <TableView fx:id="tableServiciosLista" prefHeight="200" />
                     </VBox>
                 </Tab>
 
@@ -216,8 +222,8 @@
                 <Tab fx:id="tabConsultas" text="Consultas">
                     <VBox spacing="10" style="-fx-padding: 10;">
                         <HBox spacing="10">
-                            <Button fx:id="btnDisponibilidadHabitaciones" text="Ver Disponibilidad de Habitaciones" />
-                            <Button fx:id="btnConsultaGeneral" text="Consulta General" />
+                            <Button fx:id="btnDisponibilidadHabitaciones" text="Ver Disponibilidad de Habitaciones" onAction="#handleVerDisponibilidad" />
+                            <Button fx:id="btnConsultaGeneral" text="Consulta General" onAction="#handleConsultaGeneral" />
                         </HBox>
                         <Label text="Resultados:" style="-fx-font-weight: bold;" />
                         <TableView fx:id="tableConsultas" prefHeight="350" />
